@@ -234,9 +234,7 @@ export function calculateStats(contexts: ParsedContext[]): ProjectStats {
   const uniqueInstanceNumbers = new Set<number>();
   let earliest = new Date();
   let latest = new Date(0);
-
-  // Track run totals - "Instance X of Y" tells us Y instances in that run
-  const runTotals = new Map<string, number>(); // run name -> total instances
+  let maxInstanceTotal = 0; // Highest "Instance X of Y" total seen
 
   for (const ctx of contexts) {
     // Count by type
@@ -252,14 +250,11 @@ export function calculateStats(contexts: ParsedContext[]): ProjectStats {
       uniqueInstanceNumbers.add(ctx.instanceNumber);
     }
 
-    // Extract run totals from "Instance X of Y" patterns
+    // Extract max total from "Instance X of Y" patterns
+    // This gives us a floor for the total instance count
     const runTotal = extractInstanceTotal(ctx.content);
-    if (runTotal) {
-      const runName = extractRunName(ctx.tags, ctx.content) || 'default';
-      // Keep the highest total we see for each run
-      if (!runTotals.has(runName) || runTotal > runTotals.get(runName)!) {
-        runTotals.set(runName, runTotal);
-      }
+    if (runTotal && runTotal > maxInstanceTotal) {
+      maxInstanceTotal = runTotal;
     }
 
     // Track date range
@@ -269,20 +264,12 @@ export function calculateStats(contexts: ParsedContext[]): ProjectStats {
   }
 
   // Calculate total instances:
-  // If we have run totals (from "X of Y" patterns), sum them up
-  // Otherwise fall back to count of unique instance numbers we found
-  let instanceCount = 0;
-  if (runTotals.size > 0) {
-    // Sum up all run totals
-    for (const total of runTotals.values()) {
-      instanceCount += total;
-    }
-  } else {
-    // Fallback: use max instance number found (old behavior)
-    instanceCount = uniqueInstanceNumbers.size > 0
-      ? Math.max(...uniqueInstanceNumbers)
-      : 0;
-  }
+  // Use the greater of: max instance number seen OR max "X of Y" total
+  // This ensures we don't undercount if we haven't loaded all contexts
+  const maxInstanceNumber = uniqueInstanceNumbers.size > 0
+    ? Math.max(...uniqueInstanceNumbers)
+    : 0;
+  const instanceCount = Math.max(maxInstanceNumber, maxInstanceTotal);
 
   return {
     totalContexts: contexts.length,
