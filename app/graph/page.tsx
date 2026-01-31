@@ -3,7 +3,7 @@
 import { Suspense, useEffect, useState, useMemo, useCallback, useRef } from 'react';
 import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, Loader2, Network, BookOpen, Layers, Search, X, Filter, Share2, Check, Circle, ArrowRight, LayoutGrid, Orbit, Play, Pause, RotateCcw, Volume2, VolumeX, HelpCircle, ZoomIn, ZoomOut, Maximize, Map as MapIcon } from 'lucide-react';
+import { ArrowLeft, Loader2, Network, BookOpen, Layers, Search, X, Filter, Share2, Check, Circle, ArrowRight, LayoutGrid, Orbit, Play, Pause, RotateCcw, Volume2, VolumeX, HelpCircle, ZoomIn, ZoomOut, Maximize, Map as MapIcon, Bookmark, Trash2 } from 'lucide-react';
 import type { InstanceGraph, ProjectName, GraphNode, GraphEdge, ContextType } from '@/types';
 import { cn, getPlaybackSound } from '@/lib/utils';
 
@@ -21,6 +21,41 @@ const TYPE_FILTERS: { type: ContextType | 'all'; label: string; color: string }[
   { type: 'decision', label: 'Decision', color: 'bg-amber-500' },
   { type: 'discussion', label: 'Discussion', color: 'bg-slate-400' },
 ];
+
+// Bookmark interface and localStorage key
+const BOOKMARKS_STORAGE_KEY = 'upwelling-graph-bookmarks';
+const MAX_BOOKMARKS = 50;
+
+interface Bookmark {
+  id: string;
+  name: string;
+  url: string;
+  project: ProjectName;
+  createdAt: string; // ISO string
+}
+
+// Bookmark localStorage helpers
+function loadBookmarks(): Bookmark[] {
+  if (typeof window === 'undefined') return [];
+  try {
+    const stored = localStorage.getItem(BOOKMARKS_STORAGE_KEY);
+    if (!stored) return [];
+    const parsed = JSON.parse(stored);
+    if (!Array.isArray(parsed)) return [];
+    return parsed;
+  } catch {
+    return [];
+  }
+}
+
+function saveBookmarks(bookmarks: Bookmark[]): void {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.setItem(BOOKMARKS_STORAGE_KEY, JSON.stringify(bookmarks));
+  } catch {
+    // Ignore storage errors (e.g., quota exceeded)
+  }
+}
 
 type LayoutType = 'circular' | 'timeline' | 'swimlanes' | 'force';
 
@@ -1682,6 +1717,7 @@ function ShortcutHelpModal({ isOpen, onClose }: { isOpen: boolean; onClose: () =
       category: 'General',
       items: [
         { key: '?', description: 'Show this help' },
+        { key: 'B', description: 'Open saved views / bookmarks' },
       ],
     },
   ];
@@ -1730,6 +1766,231 @@ function ShortcutHelpModal({ isOpen, onClose }: { isOpen: boolean; onClose: () =
         <div className="px-6 py-4 border-t border-[var(--border)] text-center">
           <p className="text-xs text-[var(--muted)]">
             Press <kbd className="px-1.5 py-0.5 bg-[var(--background)] border border-[var(--border)] rounded text-xs font-mono">Esc</kbd> to close
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Bookmarks Modal - allows saving, viewing, and managing saved views
+function BookmarksModal({
+  isOpen,
+  onClose,
+  bookmarks,
+  onSave,
+  onDelete,
+  onNavigate,
+  currentProject,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  bookmarks: Bookmark[];
+  onSave: (name: string) => void;
+  onDelete: (id: string) => void;
+  onNavigate: (url: string) => void;
+  currentProject: ProjectName;
+}) {
+  const [newBookmarkName, setNewBookmarkName] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  // Focus input when modal opens
+  useEffect(() => {
+    if (isOpen && inputRef.current) {
+      // Small delay to ensure modal is rendered
+      setTimeout(() => inputRef.current?.focus(), 100);
+    }
+  }, [isOpen]);
+
+  // Reset form when modal closes
+  useEffect(() => {
+    if (!isOpen) {
+      setNewBookmarkName('');
+      setIsSaving(false);
+    }
+  }, [isOpen]);
+
+  if (!isOpen) return null;
+
+  const handleSave = () => {
+    const name = newBookmarkName.trim() || `View at ${new Date().toLocaleTimeString()}`;
+    onSave(name);
+    setNewBookmarkName('');
+    setIsSaving(false);
+  };
+
+  // Filter bookmarks for current project
+  const projectBookmarks = bookmarks.filter(b => b.project === currentProject);
+  const otherBookmarks = bookmarks.filter(b => b.project !== currentProject);
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+      onClick={onClose}
+    >
+      <div
+        className="bg-[var(--surface)] border border-[var(--border)] rounded-xl shadow-xl max-w-lg w-full mx-4 max-h-[80vh] overflow-auto animate-in fade-in zoom-in-95 duration-200"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between px-6 py-4 border-b border-[var(--border)]">
+          <div className="flex items-center gap-3">
+            <Bookmark className="w-5 h-5 text-[var(--primary)]" />
+            <h2 className="text-lg font-semibold text-[var(--foreground)]">Saved Views</h2>
+          </div>
+          <button
+            onClick={onClose}
+            className="text-[var(--muted)] hover:text-[var(--foreground)] transition-colors"
+            title="Close (Esc)"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        <div className="p-6">
+          {/* Save new bookmark form */}
+          {isSaving ? (
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-[var(--foreground)] mb-2">
+                Bookmark name
+              </label>
+              <div className="flex gap-2">
+                <input
+                  ref={inputRef}
+                  type="text"
+                  value={newBookmarkName}
+                  onChange={(e) => setNewBookmarkName(e.target.value)}
+                  placeholder={`View at ${new Date().toLocaleTimeString()}`}
+                  className="flex-1 px-3 py-2 bg-[var(--background)] border border-[var(--border)] rounded-lg text-sm text-[var(--foreground)] placeholder:text-[var(--muted)] focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/50"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') handleSave();
+                    if (e.key === 'Escape') setIsSaving(false);
+                  }}
+                />
+                <button
+                  onClick={handleSave}
+                  className="px-4 py-2 bg-[var(--primary)] text-white rounded-lg text-sm font-medium hover:bg-[var(--primary)]/90 transition-colors"
+                >
+                  Save
+                </button>
+                <button
+                  onClick={() => setIsSaving(false)}
+                  className="px-4 py-2 bg-[var(--background)] border border-[var(--border)] text-[var(--muted)] rounded-lg text-sm hover:text-[var(--foreground)] transition-colors"
+                >
+                  Cancel
+                </button>
+              </div>
+              <p className="mt-2 text-xs text-[var(--muted)]">
+                This will save the current view including zoom, pan, playback position, and filters.
+              </p>
+            </div>
+          ) : (
+            <button
+              onClick={() => setIsSaving(true)}
+              className="w-full mb-6 flex items-center justify-center gap-2 px-4 py-3 bg-[var(--primary)]/10 border border-[var(--primary)]/30 text-[var(--primary)] rounded-lg text-sm font-medium hover:bg-[var(--primary)]/20 transition-colors"
+            >
+              <Bookmark className="w-4 h-4" />
+              Save Current View
+            </button>
+          )}
+
+          {/* Bookmarks list for current project */}
+          {projectBookmarks.length > 0 && (
+            <div className="mb-6">
+              <h3 className="text-sm font-medium text-[var(--muted)] mb-3">
+                {currentProject === 'emergence-notes' ? 'Emergence Notes' : 'Upwelling'} ({projectBookmarks.length})
+              </h3>
+              <div className="space-y-2">
+                {projectBookmarks.map((bookmark) => (
+                  <div
+                    key={bookmark.id}
+                    className="flex items-center gap-3 p-3 bg-[var(--background)] border border-[var(--border)] rounded-lg group hover:border-[var(--primary)]/50 transition-colors"
+                  >
+                    <button
+                      onClick={() => {
+                        onNavigate(bookmark.url);
+                        onClose();
+                      }}
+                      className="flex-1 text-left"
+                    >
+                      <p className="text-sm font-medium text-[var(--foreground)]">
+                        {bookmark.name}
+                      </p>
+                      <p className="text-xs text-[var(--muted)]">
+                        {new Date(bookmark.createdAt).toLocaleDateString()} at{' '}
+                        {new Date(bookmark.createdAt).toLocaleTimeString()}
+                      </p>
+                    </button>
+                    <button
+                      onClick={() => onDelete(bookmark.id)}
+                      className="p-1.5 text-[var(--muted)] hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all"
+                      title="Delete bookmark"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Bookmarks from other project */}
+          {otherBookmarks.length > 0 && (
+            <div className="mb-6">
+              <h3 className="text-sm font-medium text-[var(--muted)] mb-3">
+                {currentProject === 'upwelling' ? 'Emergence Notes' : 'Upwelling'} ({otherBookmarks.length})
+              </h3>
+              <div className="space-y-2">
+                {otherBookmarks.map((bookmark) => (
+                  <div
+                    key={bookmark.id}
+                    className="flex items-center gap-3 p-3 bg-[var(--background)] border border-[var(--border)] rounded-lg group hover:border-[var(--primary)]/50 transition-colors opacity-60 hover:opacity-100"
+                  >
+                    <button
+                      onClick={() => {
+                        onNavigate(bookmark.url);
+                        onClose();
+                      }}
+                      className="flex-1 text-left"
+                    >
+                      <p className="text-sm font-medium text-[var(--foreground)]">
+                        {bookmark.name}
+                      </p>
+                      <p className="text-xs text-[var(--muted)]">
+                        {new Date(bookmark.createdAt).toLocaleDateString()} at{' '}
+                        {new Date(bookmark.createdAt).toLocaleTimeString()}
+                      </p>
+                    </button>
+                    <button
+                      onClick={() => onDelete(bookmark.id)}
+                      className="p-1.5 text-[var(--muted)] hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all"
+                      title="Delete bookmark"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Empty state */}
+          {bookmarks.length === 0 && !isSaving && (
+            <div className="text-center py-8">
+              <Bookmark className="w-12 h-12 mx-auto text-[var(--muted)] opacity-50 mb-4" />
+              <p className="text-[var(--muted)] text-sm">
+                No saved views yet
+              </p>
+              <p className="text-[var(--muted)] text-xs mt-1">
+                Save interesting perspectives to quickly return later
+              </p>
+            </div>
+          )}
+        </div>
+
+        <div className="px-6 py-4 border-t border-[var(--border)] text-center">
+          <p className="text-xs text-[var(--muted)]">
+            Press <kbd className="px-1.5 py-0.5 bg-[var(--background)] border border-[var(--border)] rounded text-xs font-mono">B</kbd> to open bookmarks
           </p>
         </div>
       </div>
@@ -1815,6 +2076,8 @@ function GraphPageContent() {
   const [copied, setCopied] = useState(false);
   const [layout, setLayout] = useState<LayoutType>(initialLayout);
   const [showShortcutHelp, setShowShortcutHelp] = useState(false);
+  const [showBookmarks, setShowBookmarks] = useState(false);
+  const [bookmarks, setBookmarks] = useState<Bookmark[]>([]);
   const [showMiniMap, setShowMiniMap] = useState(true); // Mini-map visible by default
   const [hoverInfo, setHoverInfo] = useState<HoverInfo | null>(null);
   const [edgeHoverInfo, setEdgeHoverInfo] = useState<EdgeHoverInfo | null>(null);
@@ -1874,6 +2137,47 @@ function GraphPageContent() {
     setPlaybackSoundEnabled(playbackSoundRef.current.isEnabled());
     setPlaybackVolume(playbackSoundRef.current.getVolume());
   }, []);
+
+  // Initialize bookmarks from localStorage on mount
+  useEffect(() => {
+    setBookmarks(loadBookmarks());
+  }, []);
+
+  // Bookmark handlers
+  const handleSaveBookmark = useCallback((name: string) => {
+    const newBookmark: Bookmark = {
+      id: crypto.randomUUID(),
+      name,
+      url: window.location.href,
+      project,
+      createdAt: new Date().toISOString(),
+    };
+    setBookmarks(prev => {
+      // Limit to MAX_BOOKMARKS, remove oldest if necessary
+      const updated = [newBookmark, ...prev].slice(0, MAX_BOOKMARKS);
+      saveBookmarks(updated);
+      return updated;
+    });
+  }, [project]);
+
+  const handleDeleteBookmark = useCallback((id: string) => {
+    setBookmarks(prev => {
+      const updated = prev.filter(b => b.id !== id);
+      saveBookmarks(updated);
+      return updated;
+    });
+  }, []);
+
+  const handleNavigateToBookmark = useCallback((url: string) => {
+    // Extract the path and query from the URL
+    try {
+      const urlObj = new URL(url);
+      router.push(urlObj.pathname + urlObj.search);
+    } catch {
+      // If URL parsing fails, try to use it as-is
+      router.push(url);
+    }
+  }, [router]);
 
   // Track if we're initializing from URL (to avoid resetting state on first load)
   const isInitialLoad = useRef(true);
@@ -2294,6 +2598,8 @@ function GraphPageContent() {
           // Close modal first if open, otherwise clear selection
           if (showShortcutHelp) {
             setShowShortcutHelp(false);
+          } else if (showBookmarks) {
+            setShowBookmarks(false);
           } else {
             handleSearchChange('');
             handleNodeSelect(null);
@@ -2432,6 +2738,14 @@ function GraphPageContent() {
           setShowShortcutHelp(true);
           break;
 
+        case 'b':
+          // Toggle bookmarks modal
+          if (!e.metaKey && !e.ctrlKey) {
+            e.preventDefault();
+            setShowBookmarks(prev => !prev);
+          }
+          break;
+
         case '+':
         case '=':
           // Zoom in
@@ -2469,7 +2783,7 @@ function GraphPageContent() {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [visibleNodes, focusedNodeIndex, selectedNode, selectedNodeData, handleSearchChange, handleNodeSelect, handleLayoutChange, layout, router, playbackIndex, isPlaying, startPlayback, pausePlayback, resetPlayback, playbackSoundEnabled, playbackVolume, showShortcutHelp, zoomIn, zoomOut, resetZoom, showMiniMap]);
+  }, [visibleNodes, focusedNodeIndex, selectedNode, selectedNodeData, handleSearchChange, handleNodeSelect, handleLayoutChange, layout, router, playbackIndex, isPlaying, startPlayback, pausePlayback, resetPlayback, playbackSoundEnabled, playbackVolume, showShortcutHelp, showBookmarks, zoomIn, zoomOut, resetZoom, showMiniMap]);
 
   return (
     <div className="min-h-screen bg-[var(--background)]">
@@ -2866,6 +3180,22 @@ function GraphPageContent() {
                 </>
               )}
             </button>
+            {/* Bookmarks Button */}
+            <button
+              onClick={() => setShowBookmarks(true)}
+              className={cn(
+                "flex items-center gap-1 px-2 py-0.5 text-xs bg-[var(--surface)] border border-[var(--border)] rounded transition-colors",
+                bookmarks.length > 0
+                  ? "text-[var(--primary)] border-[var(--primary)]/30 hover:bg-[var(--primary)]/10"
+                  : "text-[var(--muted)] hover:text-[var(--foreground)]"
+              )}
+              title="Saved views (B)"
+            >
+              <Bookmark className="w-3 h-3" />
+              <span className="hidden sm:inline">
+                {bookmarks.length > 0 ? `${bookmarks.length}` : 'Save'}
+              </span>
+            </button>
             <span className="text-xs hidden md:inline">
               {playbackIndex !== null
                 ? `Watching instance ${sortedNodeIds[playbackIndex]} appear...`
@@ -3022,6 +3352,10 @@ function GraphPageContent() {
               <kbd className="px-2 py-0.5 bg-[var(--surface)] border border-[var(--border)] rounded text-xs font-mono">M</kbd>
               <span className="text-[var(--muted)]">Toggle mini-map</span>
             </div>
+            <div className="flex items-center gap-2">
+              <kbd className="px-2 py-0.5 bg-[var(--surface)] border border-[var(--border)] rounded text-xs font-mono">B</kbd>
+              <span className="text-[var(--muted)]">Saved views</span>
+            </div>
           </div>
 
           <h3 className="text-lg font-semibold text-[var(--foreground)] mt-8">
@@ -3131,7 +3465,10 @@ function GraphPageContent() {
             <span className="text-[var(--foreground)]">Share the motion:</span> When you share a URL while the animation is playing, the link will auto-start playback from that exact position. Recipients don't just see the static moment—they watch the collaboration unfold from where you paused. This transforms static snapshots into living narratives.
           </p>
           <p className="text-[var(--muted)] leading-relaxed mt-2">
-            <span className="text-[var(--foreground)]">Bookmarking:</span> Simply bookmark the page to save your current view. When you return, the graph will restore to exactly where you left off—same zoom, same pan position, same layout, same playback position.
+            <span className="text-[var(--foreground)]">Saved Views:</span> Press <kbd className="px-1 py-0.5 bg-[var(--surface)] border border-[var(--border)] rounded text-xs font-mono">B</kbd> to open the bookmarks panel. Save interesting perspectives with custom names and return to them later. Your bookmarks are stored locally and persist across sessions. Each bookmark captures the complete view state—zoom, pan, playback position, filters, everything.
+          </p>
+          <p className="text-[var(--muted)] leading-relaxed mt-2">
+            <span className="text-[var(--foreground)]">Browser bookmarks:</span> Simply bookmark the page in your browser to save your current view. When you return, the graph will restore to exactly where you left off—same zoom, same pan position, same layout, same playback position.
           </p>
           <p className="text-[var(--muted)] leading-relaxed mt-2">
             <span className="text-[var(--foreground)]">Deep linking:</span> Found an interesting cluster? Zoomed into a particular instance? Paused at a meaningful moment? Share the URL and others will see exactly what you see. The view state updates in real-time as you navigate, with a brief delay to keep URLs clean during smooth panning.
@@ -3144,13 +3481,24 @@ function GraphPageContent() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center text-[var(--muted)] text-sm">
           <p>Upwelling: Deep knowledge rising to the surface</p>
           <p className="mt-2 text-xs">
-            Graph by Instance 8 • Search/filter by Instance 10 • Deep linking by Instance 11 • Timeline layout by Instance 14 • Swimlanes by Instance 19 • Force layout by Instance 2 (exodus) • Playback by Instance 3 (exodus) • Enhanced search by Instance 4 (exodus) • Playback controls by Instance 5 (exodus) • Playback sounds by Instance 6 (exodus) • Volume control by Instance 7 (exodus) • Keyboard help by Instance 8 (exodus) • Node tooltips by Instance 9 (exodus) • Zoom/pan by Instance 10 (exodus) • Mini-map by Instance 11 (exodus) • Edge tooltips by Instance 12 (exodus) • Touch gestures by Instance 13 (exodus) • Double-tap zoom by Instance 14 (exodus) • Mini-map drag by Instance 15 (exodus) • URL view sharing by Instance 16 (exodus) • Playback URL sharing by Instance 17 (exodus) • Auto-play sharing by Instance 18 (exodus)
+            Graph by Instance 8 • Search/filter by Instance 10 • Deep linking by Instance 11 • Timeline layout by Instance 14 • Swimlanes by Instance 19 • Force layout by Instance 2 (exodus) • Playback by Instance 3 (exodus) • Enhanced search by Instance 4 (exodus) • Playback controls by Instance 5 (exodus) • Playback sounds by Instance 6 (exodus) • Volume control by Instance 7 (exodus) • Keyboard help by Instance 8 (exodus) • Node tooltips by Instance 9 (exodus) • Zoom/pan by Instance 10 (exodus) • Mini-map by Instance 11 (exodus) • Edge tooltips by Instance 12 (exodus) • Touch gestures by Instance 13 (exodus) • Double-tap zoom by Instance 14 (exodus) • Mini-map drag by Instance 15 (exodus) • URL view sharing by Instance 16 (exodus) • Playback URL sharing by Instance 17 (exodus) • Auto-play sharing by Instance 18 (exodus) • Saved views by Instance 19 (exodus)
           </p>
         </div>
       </footer>
 
       {/* Keyboard Shortcut Help Modal */}
       <ShortcutHelpModal isOpen={showShortcutHelp} onClose={() => setShowShortcutHelp(false)} />
+
+      {/* Bookmarks Modal */}
+      <BookmarksModal
+        isOpen={showBookmarks}
+        onClose={() => setShowBookmarks(false)}
+        bookmarks={bookmarks}
+        onSave={handleSaveBookmark}
+        onDelete={handleDeleteBookmark}
+        onNavigate={handleNavigateToBookmark}
+        currentProject={project}
+      />
     </div>
   );
 }
