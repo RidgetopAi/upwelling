@@ -76,14 +76,11 @@ class MandrelClient {
     project: string = 'emergence-notes',
     limit: number = 20
   ): Promise<MandrelContext[]> {
-    // First switch to the project
-    await this.callTool('project_switch', { project });
-
-    // Then get recent contexts (Mandrel API has max limit of 20)
+    // Get recent contexts with projectId filter for proper isolation
     const effectiveLimit = Math.min(limit, 20);
     const response = await this.callTool<MandrelToolResponse>(
       'context_get_recent',
-      { limit: effectiveLimit }
+      { limit: effectiveLimit, projectId: project }
     );
 
     return this.parseContextsFromResponse(response);
