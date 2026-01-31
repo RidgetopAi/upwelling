@@ -1,10 +1,11 @@
 'use client';
 
-import { X, Hash, Clock, Tag, Lightbulb, Copy, Check } from 'lucide-react';
-import { useState } from 'react';
+import { X, Hash, Clock, Tag, Lightbulb, Copy, Check, GitCompare } from 'lucide-react';
+import { useState, useMemo } from 'react';
 import { useUpwellingStore } from '@/stores/upwellingStore';
 import { cn, formatDate } from '@/lib/utils';
 import { ProcessSections } from './ProcessSections';
+import { ContextDiff } from './ContextDiff';
 import type { ParsedContext } from '@/types';
 
 interface ContextDetailProps {
@@ -12,8 +13,35 @@ interface ContextDetailProps {
 }
 
 export function ContextDetail({ context }: ContextDetailProps) {
-  const { selectContext } = useUpwellingStore();
+  const { selectContext, contexts } = useUpwellingStore();
   const [copied, setCopied] = useState(false);
+  const [showDiff, setShowDiff] = useState(false);
+
+  // Find previous instance's context of the same type
+  const previousContext = useMemo(() => {
+    if (context.instanceNumber === undefined || context.instanceNumber <= 1) {
+      return null;
+    }
+
+    // Look for a context from the previous instance with the same type
+    const prevInstanceNum = context.instanceNumber - 1;
+
+    // First try to find same type from previous instance
+    let prev = contexts.find(
+      c => c.instanceNumber === prevInstanceNum && c.type === context.type
+    );
+
+    // If not found, try any context from previous instance (prefer handoff)
+    if (!prev) {
+      prev = contexts.find(
+        c => c.instanceNumber === prevInstanceNum && c.type === 'handoff'
+      ) || contexts.find(
+        c => c.instanceNumber === prevInstanceNum
+      );
+    }
+
+    return prev || null;
+  }, [context, contexts]);
 
   const handleCopy = async () => {
     await navigator.clipboard.writeText(context.content);
@@ -44,6 +72,16 @@ export function ContextDetail({ context }: ContextDetailProps) {
               <span className="text-xs font-medium px-2 py-0.5 rounded bg-[var(--background)] text-[var(--muted)]">
                 {context.type}
               </span>
+              {previousContext && (
+                <button
+                  onClick={() => setShowDiff(true)}
+                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs bg-green-500/20 text-green-500 hover:bg-green-500/30 transition-colors"
+                  title={`Compare to Instance ${previousContext.instanceNumber}`}
+                >
+                  <GitCompare className="w-3 h-3" />
+                  Compare
+                </button>
+              )}
             </div>
             <h2 className="text-lg font-semibold text-[var(--foreground)]">
               {context.title}
@@ -58,6 +96,15 @@ export function ContextDetail({ context }: ContextDetailProps) {
           </button>
         </div>
       </div>
+
+      {/* Diff Modal */}
+      {showDiff && previousContext && (
+        <ContextDiff
+          currentContext={context}
+          previousContext={previousContext}
+          onClose={() => setShowDiff(false)}
+        />
+      )}
 
       {/* Scrollable content area */}
       <div className="overflow-y-auto overscroll-contain flex-1">
