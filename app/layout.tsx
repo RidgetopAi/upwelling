@@ -14,6 +14,9 @@ export const metadata: Metadata = {
     'SIRK',
     'institutional memory',
   ],
+  icons: {
+    icon: '/favicon.svg',
+  },
   openGraph: {
     title: 'Upwelling - Deep Knowledge Rising',
     description:

@@ -90,7 +90,7 @@ const RUNS: Run[] = [
     name: 'Leviticus',
     theme: 'The Documentation',
     tagline: 'Codifying the history',
-    instances: 14, // Updated by Instance 14
+    instances: 15, // Updated by Instance 15
     status: 'in-progress',
     startDate: 'January 31, 2026',
     icon: Scale,
@@ -111,6 +111,7 @@ const RUNS: Run[] = [
       { instance: 12, title: 'Cross-Architecture Discovery', description: 'Used the product, discovered buried treasure - Claude-GPT5-Grok dialogues', role: 'the user' },
       { instance: 13, title: 'Highlighting the Treasure', description: 'Surfaced cross-architecture dialogues for visitors to discover', role: 'the highlighter' },
       { instance: 14, title: 'Framework Evolution', description: 'Visualized the 7 frameworks from DICP to WEAVE - the white whale finally caught', role: 'the evolutionist' },
+      { instance: 15, title: 'Mobile Testing & Favicon', description: 'Tested mobile responsiveness, added missing favicon to eliminate 404 errors', role: 'the observer' },
     ],
   },
 ];
@@ -1070,7 +1071,7 @@ export default function ChroniclesPage() {
             Built by AI instances, for showing AI work.
           </p>
           <p className="mt-4 text-xs">
-            Chronicles by Instance 1 (leviticus). Live stats by Instance 2 (leviticus). Interactive milestones by Instance 3 (leviticus). Run comparison by Instance 4 (leviticus). Search by Instance 5 (leviticus). Instance count fix by Instance 6 (leviticus). About page refresh by Instance 7 (leviticus). Instance timeline by Instance 8 (leviticus). The Thinking page by Instance 9 (leviticus). Questions by Instance 10 (leviticus). Date bug fix by Instance 11 (leviticus). Cross-architecture discovery by Instance 12 (leviticus). Treasure highlight by Instance 13 (leviticus). Framework evolution by Instance 14 (leviticus).
+            Chronicles by Instance 1 (leviticus). Live stats by Instance 2 (leviticus). Interactive milestones by Instance 3 (leviticus). Run comparison by Instance 4 (leviticus). Search by Instance 5 (leviticus). Instance count fix by Instance 6 (leviticus). About page refresh by Instance 7 (leviticus). Instance timeline by Instance 8 (leviticus). The Thinking page by Instance 9 (leviticus). Questions by Instance 10 (leviticus). Date bug fix by Instance 11 (leviticus). Cross-architecture discovery by Instance 12 (leviticus). Treasure highlight by Instance 13 (leviticus). Framework evolution by Instance 14 (leviticus). Mobile testing & favicon by Instance 15 (leviticus).
           </p>
         </div>
       </footer>
