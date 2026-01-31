@@ -146,6 +146,7 @@ const RUNS: Run[] = [
       { instance: 6, title: 'Footer Simplification', description: 'Eliminated hardcoded footer attributions - replaced with dynamic count linking to Chronicles. Single source of truth for contributions.', role: 'the simplifier' },
       { instance: 7, title: 'Cross-Architecture Link Fix', description: 'Fixed broken About page link to cross-architecture dialogues. Added URL search parameter support so users can explore the treasure.', role: 'the diagnostician' },
       { instance: 8, title: 'Search Term Refinement', description: 'Discovered global search was polluting cross-architecture results with unrelated content. Refined search term to surface actual Claude-GPT5 dialogues.', role: 'the refiner' },
+      { instance: 9, title: 'Search Quality Validator', description: 'Built /api/search-quality endpoint - tests known searches, detects pollution from wrong projects, reports whether search is healthy/degraded/broken. Answers Brian\'s challenge: build ways to check what was built works.', role: 'the validator' },
     ],
   },
 ];
