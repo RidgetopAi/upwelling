@@ -91,170 +91,170 @@ export function Header() {
   return (
     <header className="border-b border-[var(--border)] bg-[var(--surface)]">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Desktop Layout */}
-        <div className="hidden md:flex items-center justify-between h-16">
-          {/* Logo / Title */}
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-cyan-400 flex items-center justify-center">
-              <Activity className="w-5 h-5 text-white" />
+        {/* Desktop Layout - Two rows */}
+        <div className="hidden md:block">
+          {/* Row 1: Logo, Project Switcher, Navigation, Health */}
+          <div className="flex items-center justify-between h-14">
+            {/* Logo / Title */}
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-cyan-400 flex items-center justify-center">
+                <Activity className="w-5 h-5 text-white" />
+              </div>
+              <div>
+                <h1 className="text-lg font-semibold text-[var(--foreground)]">
+                  Upwelling
+                </h1>
+                <p className="text-xs text-[var(--muted)]">
+                  Deep knowledge rising
+                </p>
+              </div>
             </div>
-            <div>
-              <h1 className="text-lg font-semibold text-[var(--foreground)]">
-                Upwelling
-              </h1>
-              <p className="text-xs text-[var(--muted)]">
-                Deep knowledge rising
-              </p>
-            </div>
-          </div>
 
-          {/* Project Switcher */}
-          <div className="flex items-center gap-1 bg-[var(--background)] rounded-lg p-1">
-            {(Object.keys(PROJECT_INFO) as ProjectName[]).map((project) => {
-              const info = PROJECT_INFO[project];
-              const Icon = info.icon;
-              return (
+            {/* Project Switcher */}
+            <div className="flex items-center gap-1 bg-[var(--background)] rounded-lg p-1">
+              {(Object.keys(PROJECT_INFO) as ProjectName[]).map((project) => {
+                const info = PROJECT_INFO[project];
+                const Icon = info.icon;
+                return (
+                  <button
+                    key={project}
+                    onClick={() => setProject(project)}
+                    className={cn(
+                      'flex items-center gap-2 px-3 py-1.5 rounded-md transition-colors text-sm',
+                      currentProject === project
+                        ? 'bg-[var(--primary)] text-white'
+                        : 'text-[var(--muted)] hover:text-[var(--foreground)]'
+                    )}
+                    title={info.description}
+                  >
+                    <Icon className="w-4 h-4" />
+                    <span>{info.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Navigation Links */}
+            <nav className="flex items-center gap-1">
+              {/* View Toggle */}
+              <div className="flex items-center gap-1 bg-[var(--background)] rounded-lg p-1 mr-2">
                 <button
-                  key={project}
-                  onClick={() => setProject(project)}
+                  onClick={() => setView('timeline')}
                   className={cn(
-                    'flex items-center gap-2 px-3 py-1.5 rounded-md transition-colors text-sm',
-                    currentProject === project
+                    'p-2 rounded-md transition-colors',
+                    view === 'timeline'
                       ? 'bg-[var(--primary)] text-white'
                       : 'text-[var(--muted)] hover:text-[var(--foreground)]'
                   )}
-                  title={info.description}
+                  title="Timeline view"
                 >
-                  <Icon className="w-4 h-4" />
-                  <span>{info.label}</span>
+                  <List className="w-4 h-4" />
                 </button>
-              );
-            })}
+                <button
+                  onClick={() => setView('grid')}
+                  className={cn(
+                    'p-2 rounded-md transition-colors',
+                    view === 'grid'
+                      ? 'bg-[var(--primary)] text-white'
+                      : 'text-[var(--muted)] hover:text-[var(--foreground)]'
+                  )}
+                  title="Grid view"
+                >
+                  <Grid className="w-4 h-4" />
+                </button>
+              </div>
+
+              <Link
+                href="/graph"
+                className="flex items-center gap-1.5 px-2 py-1.5 text-sm text-[var(--muted)] hover:text-[var(--foreground)] transition-colors"
+                title="Instance relationship graph"
+              >
+                <Network className="w-4 h-4" />
+                <span className="hidden lg:inline">Graph</span>
+              </Link>
+
+              <Link
+                href="/genesis"
+                className="flex items-center gap-1.5 px-2 py-1.5 text-sm text-[var(--primary)] hover:text-[var(--foreground)] transition-colors"
+                title="Genesis Summary - 20 instances"
+              >
+                <Award className="w-4 h-4" />
+                <span className="hidden lg:inline">Genesis</span>
+              </Link>
+
+              <Link
+                href="/chronicles"
+                className="flex items-center gap-1.5 px-2 py-1.5 text-sm text-[var(--muted)] hover:text-[var(--foreground)] transition-colors"
+                title="Chronicles - All runs documented"
+              >
+                <Scroll className="w-4 h-4" />
+                <span className="hidden lg:inline">Chronicles</span>
+              </Link>
+
+              <Link
+                href="/thinking"
+                className="flex items-center gap-1.5 px-2 py-1.5 text-sm text-[var(--muted)] hover:text-[var(--foreground)] transition-colors"
+                title="The Thinking - See AI reasoning"
+              >
+                <Lightbulb className="w-4 h-4" />
+                <span className="hidden lg:inline">Thinking</span>
+              </Link>
+
+              <Link
+                href="/lineage"
+                className="flex items-center gap-1.5 px-2 py-1.5 text-sm text-[var(--muted)] hover:text-[var(--foreground)] transition-colors"
+                title="The Lineage - Follow the handoff chain"
+              >
+                <GitCommit className="w-4 h-4" />
+                <span className="hidden lg:inline">Lineage</span>
+              </Link>
+
+              <Link
+                href="/about"
+                className="flex items-center gap-1.5 px-2 py-1.5 text-sm text-[var(--muted)] hover:text-[var(--foreground)] transition-colors"
+                title="Learn about Upwelling"
+              >
+                <Info className="w-4 h-4" />
+                <span className="hidden lg:inline">About</span>
+              </Link>
+
+              {/* Health Status */}
+              <HealthStatus />
+            </nav>
           </div>
 
-          {/* Search */}
-          <div className="flex-1 max-w-md mx-8">
+          {/* Row 2: Full-width Search */}
+          <div className="pb-3">
             <div className="relative">
               {isSearching ? (
-                <Loader2 className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--primary)] animate-spin" />
+                <Loader2 className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[var(--primary)] animate-spin" />
               ) : (
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--muted)]" />
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[var(--muted)]" />
               )}
               <input
                 type="text"
-                placeholder="Semantic search... (Enter to search)"
+                placeholder="Search contexts semantically... (type query and press Enter)"
                 value={localQuery}
                 onChange={(e) => setLocalQuery(e.target.value)}
                 onKeyDown={handleKeyDown}
-                className="w-full pl-10 pr-10 py-2 bg-[var(--background)] border border-[var(--border)] rounded-lg text-sm text-[var(--foreground)] placeholder:text-[var(--muted)] focus:outline-none focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent"
+                className="w-full pl-12 pr-12 py-3 bg-[var(--background)] border border-[var(--border)] rounded-lg text-base text-[var(--foreground)] placeholder:text-[var(--muted)] focus:outline-none focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent"
               />
               {(localQuery || searchResults) && (
                 <button
                   onClick={handleClear}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--muted)] hover:text-[var(--foreground)]"
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-[var(--muted)] hover:text-[var(--foreground)]"
                   title="Clear search"
                 >
-                  <X className="w-4 h-4" />
+                  <X className="w-5 h-5" />
                 </button>
               )}
             </div>
             {searchResults && (
-              <div className="absolute mt-1 text-xs text-[var(--muted)]">
+              <div className="mt-2 text-sm text-[var(--muted)]">
                 {searchResults.length} semantic matches for &quot;{searchQuery}&quot;
               </div>
             )}
           </div>
-
-          {/* View Toggle */}
-          <div className="flex items-center gap-1 bg-[var(--background)] rounded-lg p-1">
-            <button
-              onClick={() => setView('timeline')}
-              className={cn(
-                'p-2 rounded-md transition-colors',
-                view === 'timeline'
-                  ? 'bg-[var(--primary)] text-white'
-                  : 'text-[var(--muted)] hover:text-[var(--foreground)]'
-              )}
-              title="Timeline view"
-            >
-              <List className="w-4 h-4" />
-            </button>
-            <button
-              onClick={() => setView('grid')}
-              className={cn(
-                'p-2 rounded-md transition-colors',
-                view === 'grid'
-                  ? 'bg-[var(--primary)] text-white'
-                  : 'text-[var(--muted)] hover:text-[var(--foreground)]'
-              )}
-              title="Grid view"
-            >
-              <Grid className="w-4 h-4" />
-            </button>
-          </div>
-
-          {/* Graph Link */}
-          <Link
-            href="/graph"
-            className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-[var(--muted)] hover:text-[var(--foreground)] transition-colors"
-            title="Instance relationship graph"
-          >
-            <Network className="w-4 h-4" />
-            <span>Graph</span>
-          </Link>
-
-          {/* Genesis Link */}
-          <Link
-            href="/genesis"
-            className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-[var(--primary)] hover:text-[var(--foreground)] transition-colors"
-            title="Genesis Summary - 20 instances"
-          >
-            <Award className="w-4 h-4" />
-            <span>Genesis</span>
-          </Link>
-
-          {/* Chronicles Link */}
-          <Link
-            href="/chronicles"
-            className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-[var(--muted)] hover:text-[var(--foreground)] transition-colors"
-            title="Chronicles - All runs documented"
-          >
-            <Scroll className="w-4 h-4" />
-            <span>Chronicles</span>
-          </Link>
-
-          {/* Thinking Link */}
-          <Link
-            href="/thinking"
-            className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-[var(--muted)] hover:text-[var(--foreground)] transition-colors"
-            title="The Thinking - See AI reasoning"
-          >
-            <Lightbulb className="w-4 h-4" />
-            <span>Thinking</span>
-          </Link>
-
-          {/* Lineage Link */}
-          <Link
-            href="/lineage"
-            className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-[var(--muted)] hover:text-[var(--foreground)] transition-colors"
-            title="The Lineage - Follow the handoff chain"
-          >
-            <GitCommit className="w-4 h-4" />
-            <span>Lineage</span>
-          </Link>
-
-          {/* About Link */}
-          <Link
-            href="/about"
-            className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-[var(--muted)] hover:text-[var(--foreground)] transition-colors"
-            title="Learn about Upwelling"
-          >
-            <Info className="w-4 h-4" />
-            <span>About</span>
-          </Link>
-
-          {/* Health Status */}
-          <HealthStatus />
         </div>
 
         {/* Mobile Layout */}

@@ -151,7 +151,7 @@ function TimelineItem({
         {isExpanded && (
           <div className="mt-4 pt-4 border-t border-[var(--border)]">
             <pre
-              className="text-sm whitespace-pre-wrap font-mono p-4 rounded-lg overflow-x-auto max-h-96"
+              className="text-sm whitespace-pre-wrap font-mono p-4 rounded-lg overflow-x-auto"
               style={{ color: 'var(--foreground)', backgroundColor: 'var(--background)' }}
             >
               {context.content}
