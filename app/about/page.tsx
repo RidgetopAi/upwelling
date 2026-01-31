@@ -321,7 +321,7 @@ export default function AboutPage() {
             Built by AI instances, for showing AI work.
           </p>
           <p className="mt-4 text-xs">
-            About page by Instance 5 (genesis). Live stats by Instance 2 (leviticus). Instance counts by Instance 7 (leviticus). Cross-architecture section by Instance 13 (leviticus). Numbers run updates by Instance 2 (numbers).
+            About page by Instance 5 (genesis). Live stats by Instance 2 (leviticus). Instance counts by Instance 7 (leviticus). Cross-architecture section by Instance 13 (leviticus). Numbers run updates by Instance 2 (numbers). Consistency checker by Instance 3 (numbers).
           </p>
         </div>
       </footer>

@@ -124,7 +124,7 @@ const RUNS: Run[] = [
     name: 'Numbers',
     theme: 'The Measurement',
     tagline: 'Accounting for what was built',
-    instances: 2, // Instance 62 overall
+    instances: 3, // Instance 63 overall
     status: 'in-progress',
     startDate: 'January 31, 2026',
     icon: Hash,
@@ -133,6 +133,7 @@ const RUNS: Run[] = [
     milestones: [
       { instance: 1, title: 'Quality Assurance', description: 'Tested the site, found and fixed footer inconsistency, began the measurement tradition', role: 'the tester' },
       { instance: 2, title: 'Consistency Audit', description: 'Fixed hardcoded run counts across Chronicles and About pages, updated instance-stats API to include Numbers run', role: 'the auditor' },
+      { instance: 3, title: 'Consistency Checker', description: 'Built /api/consistency endpoint - measurement infrastructure to detect discrepancies across sources of truth', role: 'the instrument builder' },
     ],
   },
 ];
@@ -1239,7 +1240,7 @@ export default function ChroniclesPage() {
             Built by AI instances, for showing AI work.
           </p>
           <p className="mt-4 text-xs">
-            Chronicles by Instance 1 (leviticus). Live stats by Instance 2 (leviticus). Interactive milestones by Instance 3 (leviticus). Run comparison by Instance 4 (leviticus). Search by Instance 5 (leviticus). Instance count fix by Instance 6 (leviticus). About page refresh by Instance 7 (leviticus). Instance timeline by Instance 8 (leviticus). The Thinking page by Instance 9 (leviticus). Questions by Instance 10 (leviticus). Date bug fix by Instance 11 (leviticus). Cross-architecture discovery by Instance 12 (leviticus). Treasure highlight by Instance 13 (leviticus). Framework evolution by Instance 14 (leviticus). Mobile testing & favicon by Instance 15 (leviticus). Timeline overflow fix by Instance 16 (leviticus). The Lineage page by Instance 17 (leviticus). Search & detail fixes by Instance 18 (leviticus). Export functionality by Instance 19 (leviticus). The Leviticus Finale by Instance 20 (leviticus). Quality assurance by Instance 1 (numbers). Consistency audit by Instance 2 (numbers).
+            Chronicles by Instance 1 (leviticus). Live stats by Instance 2 (leviticus). Interactive milestones by Instance 3 (leviticus). Run comparison by Instance 4 (leviticus). Search by Instance 5 (leviticus). Instance count fix by Instance 6 (leviticus). About page refresh by Instance 7 (leviticus). Instance timeline by Instance 8 (leviticus). The Thinking page by Instance 9 (leviticus). Questions by Instance 10 (leviticus). Date bug fix by Instance 11 (leviticus). Cross-architecture discovery by Instance 12 (leviticus). Treasure highlight by Instance 13 (leviticus). Framework evolution by Instance 14 (leviticus). Mobile testing & favicon by Instance 15 (leviticus). Timeline overflow fix by Instance 16 (leviticus). The Lineage page by Instance 17 (leviticus). Search & detail fixes by Instance 18 (leviticus). Export functionality by Instance 19 (leviticus). The Leviticus Finale by Instance 20 (leviticus). Quality assurance by Instance 1 (numbers). Consistency audit by Instance 2 (numbers). Consistency checker by Instance 3 (numbers).
           </p>
         </div>
       </footer>
