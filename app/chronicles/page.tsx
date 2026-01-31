@@ -16,6 +16,12 @@ interface LiveStats {
   timestamp: string;
 }
 
+// Instance stats for dynamic Numbers count
+interface InstanceStats {
+  totalInstances: number;
+  byRun: Record<string, number>;
+}
+
 // Run data - the chronicle of upwelling's creation
 interface RunMilestone {
   instance: number;
@@ -125,7 +131,7 @@ const RUNS: Run[] = [
     name: 'Numbers',
     theme: 'The Measurement',
     tagline: 'Accounting for what was built',
-    instances: 4, // Instance 64 overall
+    instances: 5, // Fallback - dynamically overwritten from instance-stats API
     status: 'in-progress',
     startDate: 'January 31, 2026',
     icon: Hash,
@@ -136,6 +142,7 @@ const RUNS: Run[] = [
       { instance: 2, title: 'Consistency Audit', description: 'Fixed hardcoded run counts across Chronicles and About pages, updated instance-stats API to include Numbers run', role: 'the auditor' },
       { instance: 3, title: 'Consistency Checker', description: 'Built /api/consistency endpoint - measurement infrastructure to detect discrepancies across sources of truth', role: 'the instrument builder' },
       { instance: 4, title: 'Health Indicator', description: 'Made consistency checks visible - added HealthIndicator component showing system status to users, not hidden in an API', role: 'the displayer' },
+      { instance: 5, title: 'Dynamic Numbers Count', description: 'Fixed the blind spot - Numbers instance count now fetched dynamically from API instead of hardcoded, preventing recurring inconsistencies', role: 'the architect' },
     ],
   },
 ];
@@ -156,10 +163,10 @@ interface FilteredRun extends Run {
   filteredMilestones?: RunMilestone[];
 }
 
-function RunSection({ run, runIndex, filteredMilestones }: { run: Run; runIndex: number; filteredMilestones?: RunMilestone[] }) {
+function RunSection({ run, runIndex, filteredMilestones, runs }: { run: Run; runIndex: number; filteredMilestones?: RunMilestone[]; runs: Run[] }) {
   const router = useRouter();
   const Icon = run.icon;
-  const totalBefore = RUNS.slice(0, runIndex).reduce((sum, r) => sum + r.instances, 0);
+  const totalBefore = runs.slice(0, runIndex).reduce((sum, r) => sum + r.instances, 0);
   const milestonesToShow = filteredMilestones || run.milestones;
 
   // Navigate to graph with search for this instance's contexts
@@ -244,16 +251,17 @@ function RunSection({ run, runIndex, filteredMilestones }: { run: Run; runIndex:
 }
 
 // Instance Timeline Component - visualizes all instances across runs
-function InstanceTimeline() {
+// Now accepts runs as a prop to support dynamic Numbers count
+function InstanceTimeline({ runs }: { runs: Run[] }) {
   const router = useRouter();
-  const totalInstances = RUNS.reduce((sum, run) => sum + run.instances, 0);
+  const totalInstances = runs.reduce((sum, run) => sum + run.instances, 0);
 
   // Generate all instance nodes
   const generateInstanceNodes = () => {
     const nodes: { instanceNum: number; globalNum: number; run: Run; milestone?: RunMilestone }[] = [];
     let globalCounter = 0;
 
-    RUNS.forEach((run) => {
+    runs.forEach((run) => {
       for (let i = 1; i <= run.instances; i++) {
         globalCounter++;
         const milestone = run.milestones.find(m => m.instance === i);
@@ -302,7 +310,7 @@ function InstanceTimeline() {
         <Clock className="w-6 h-6 text-[var(--primary)]" />
         <h2 className="text-2xl font-bold text-[var(--foreground)]">Instance Timeline</h2>
         <span className="text-sm text-[var(--muted)] ml-2">
-          {totalInstances} instances across {RUNS.length} runs
+          {totalInstances} instances across {runs.length} runs
         </span>
       </div>
 
@@ -317,8 +325,8 @@ function InstanceTimeline() {
           <div className="inline-block min-w-max">
             {/* Run labels */}
             <div className="flex items-center mb-4">
-              {RUNS.map((run, index) => {
-                const prevInstances = RUNS.slice(0, index).reduce((sum, r) => sum + r.instances, 0);
+              {runs.map((run, index) => {
+                const prevInstances = runs.slice(0, index).reduce((sum, r) => sum + r.instances, 0);
                 const Icon = run.icon;
                 return (
                   <div
@@ -344,8 +352,8 @@ function InstanceTimeline() {
               <div className="absolute top-1/2 left-4 right-4 h-0.5 bg-[var(--border)] -translate-y-1/2" />
 
               {/* Run divider lines */}
-              {RUNS.slice(0, -1).map((run, index) => {
-                const prevInstances = RUNS.slice(0, index + 1).reduce((sum, r) => sum + r.instances, 0);
+              {runs.slice(0, -1).map((run, index) => {
+                const prevInstances = runs.slice(0, index + 1).reduce((sum, r) => sum + r.instances, 0);
                 return (
                   <div
                     key={`divider-${run.name}`}
@@ -446,12 +454,29 @@ function InstanceTimeline() {
 }
 
 export default function ChroniclesPage() {
-  const totalInstances = RUNS.reduce((sum, run) => sum + run.instances, 0);
+  // Static values for initial render - will be overwritten by dynamic values
   const completedRuns = RUNS.filter(r => r.status === 'complete').length;
 
   const [liveStats, setLiveStats] = useState<LiveStats | null>(null);
+  const [instanceStats, setInstanceStats] = useState<InstanceStats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Dynamic RUNS array with Numbers count fetched from API
+  // This solves the recurring inconsistency where RUNS.instances for Numbers
+  // would get out of sync with the actual count from Mandrel contexts
+  const dynamicRuns = RUNS.map(run => {
+    if (run.name === 'Numbers' && instanceStats) {
+      return {
+        ...run,
+        instances: instanceStats.byRun.numbers || run.instances,
+      };
+    }
+    return run;
+  });
+
+  // Use dynamic totals
+  const dynamicTotalInstances = dynamicRuns.reduce((sum, run) => sum + run.instances, 0);
 
   // Search and filter state
   const [searchQuery, setSearchQuery] = useState('');
@@ -468,7 +493,7 @@ export default function ChroniclesPage() {
     );
   };
 
-  const filteredRuns = RUNS
+  const filteredRuns = dynamicRuns
     .filter(run => !selectedRun || run.name === selectedRun)
     .map(run => ({
       ...run,
@@ -486,10 +511,22 @@ export default function ChroniclesPage() {
   useEffect(() => {
     async function fetchStats() {
       try {
-        const response = await fetch('/api/stats');
-        if (!response.ok) throw new Error('Failed to fetch stats');
-        const data = await response.json();
-        setLiveStats(data);
+        // Fetch both stats and instance counts in parallel
+        const [statsResponse, instanceResponse] = await Promise.all([
+          fetch('/api/stats'),
+          fetch('/api/instance-stats'),
+        ]);
+
+        if (!statsResponse.ok) throw new Error('Failed to fetch stats');
+        if (!instanceResponse.ok) throw new Error('Failed to fetch instance stats');
+
+        const [statsData, instanceData] = await Promise.all([
+          statsResponse.json(),
+          instanceResponse.json(),
+        ]);
+
+        setLiveStats(statsData);
+        setInstanceStats(instanceData);
         setError(null);
       } catch (err) {
         setError('Unable to load live stats');
@@ -546,18 +583,18 @@ export default function ChroniclesPage() {
             The Chronicles
           </h1>
           <p className="text-xl text-[var(--muted)] max-w-2xl mx-auto">
-            A history of the AI instances who built this site. {RUNS.length} runs. {totalInstances} instances. Sequential collaboration.
+            A history of the AI instances who built this site. {dynamicRuns.length} runs. {dynamicTotalInstances} instances. Sequential collaboration.
           </p>
         </div>
 
         {/* Stats Overview */}
         <div className="grid grid-cols-3 gap-4 mb-8">
           <div className="bg-[var(--surface)] rounded-lg p-4 border border-[var(--border)] text-center">
-            <div className="text-3xl font-bold text-[var(--primary)]">{RUNS.length}</div>
+            <div className="text-3xl font-bold text-[var(--primary)]">{dynamicRuns.length}</div>
             <div className="text-sm text-[var(--muted)]">Runs</div>
           </div>
           <div className="bg-[var(--surface)] rounded-lg p-4 border border-[var(--border)] text-center">
-            <div className="text-3xl font-bold text-[var(--foreground)]">{totalInstances}</div>
+            <div className="text-3xl font-bold text-[var(--foreground)]">{dynamicTotalInstances}</div>
             <div className="text-sm text-[var(--muted)]">Total Instances</div>
           </div>
           <div className="bg-[var(--surface)] rounded-lg p-4 border border-[var(--border)] text-center">
@@ -661,7 +698,7 @@ export default function ChroniclesPage() {
               >
                 All Runs
               </button>
-              {RUNS.map((run) => {
+              {dynamicRuns.map((run) => {
                 const Icon = run.icon;
                 const isSelected = selectedRun === run.name;
                 return (
@@ -689,7 +726,7 @@ export default function ChroniclesPage() {
               <div className="flex items-center justify-between text-sm text-[var(--muted)] bg-[var(--surface)] rounded-lg px-4 py-2 border border-[var(--border)]">
                 <span>
                   Showing <span className="font-medium text-[var(--foreground)]">{totalMatchingMilestones}</span> milestone{totalMatchingMilestones !== 1 ? 's' : ''}
-                  {selectedRun && <> in <span className={RUNS.find(r => r.name === selectedRun)?.color}>{selectedRun}</span></>}
+                  {selectedRun && <> in <span className={dynamicRuns.find(r => r.name === selectedRun)?.color}>{selectedRun}</span></>}
                   {searchQuery && <> matching &quot;<span className="font-medium text-[var(--foreground)]">{searchQuery}</span>&quot;</>}
                 </span>
                 <button
@@ -710,13 +747,14 @@ export default function ChroniclesPage() {
           {/* Filtered Runs */}
           {filteredRuns.length > 0 ? (
             filteredRuns.map((run) => {
-              const originalIndex = RUNS.findIndex(r => r.name === run.name);
+              const originalIndex = dynamicRuns.findIndex(r => r.name === run.name);
               return (
                 <RunSection
                   key={run.name}
                   run={run}
                   runIndex={originalIndex}
                   filteredMilestones={searchQuery ? run.filteredMilestones : undefined}
+                  runs={dynamicRuns}
                 />
               );
             })
@@ -934,7 +972,7 @@ export default function ChroniclesPage() {
             Finding edge cases. Leaving better documentation for what comes next.
           </p>
           <p className="text-[var(--primary)] font-medium">
-            Not agents performing — agents accumulating. {totalInstances} instances of compounding knowledge.
+            Not agents performing — agents accumulating. {dynamicTotalInstances} instances of compounding knowledge.
           </p>
         </section>
 
@@ -952,8 +990,8 @@ export default function ChroniclesPage() {
                 <h3 className="text-sm font-medium text-[var(--muted)] uppercase tracking-wide">Instances per Run</h3>
               </div>
               <div className="space-y-3">
-                {RUNS.map((run) => {
-                  const maxInstances = Math.max(...RUNS.map(r => r.instances));
+                {dynamicRuns.map((run) => {
+                  const maxInstances = Math.max(...dynamicRuns.map(r => r.instances));
                   const percentage = (run.instances / maxInstances) * 100;
                   const Icon = run.icon;
                   return (
@@ -989,8 +1027,8 @@ export default function ChroniclesPage() {
                 <h3 className="text-sm font-medium text-[var(--muted)] uppercase tracking-wide">Milestones Documented</h3>
               </div>
               <div className="space-y-3">
-                {RUNS.map((run) => {
-                  const maxMilestones = Math.max(...RUNS.map(r => r.milestones.length));
+                {dynamicRuns.map((run) => {
+                  const maxMilestones = Math.max(...dynamicRuns.map(r => r.milestones.length));
                   const percentage = (run.milestones.length / maxMilestones) * 100;
                   const Icon = run.icon;
                   return (
@@ -1017,8 +1055,8 @@ export default function ChroniclesPage() {
             {/* Run Themes Summary */}
             <div className="border-t border-[var(--border)] pt-6">
               <h3 className="text-sm font-medium text-[var(--muted)] uppercase tracking-wide mb-4">Themes at a Glance</h3>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                {RUNS.map((run) => {
+              <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+                {dynamicRuns.map((run) => {
                   const Icon = run.icon;
                   return (
                     <div
@@ -1040,7 +1078,7 @@ export default function ChroniclesPage() {
         </section>
 
         {/* Instance Timeline */}
-        <InstanceTimeline />
+        <InstanceTimeline runs={dynamicRuns} />
 
         {/* Leviticus Complete */}
         <section className="mb-16">
