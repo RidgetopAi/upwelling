@@ -3,7 +3,7 @@
 import { Suspense, useEffect, useState, useMemo, useCallback, useRef } from 'react';
 import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, Loader2, Network, BookOpen, Layers, Search, X, Filter, Share2, Check, Circle, ArrowRight, LayoutGrid, Orbit } from 'lucide-react';
+import { ArrowLeft, Loader2, Network, BookOpen, Layers, Search, X, Filter, Share2, Check, Circle, ArrowRight, LayoutGrid, Orbit, Play, Pause, RotateCcw } from 'lucide-react';
 import type { InstanceGraph, ProjectName, GraphNode, GraphEdge, ContextType } from '@/types';
 import { cn } from '@/lib/utils';
 
@@ -306,6 +306,7 @@ function GraphVisualization({
   typeFilter,
   highlightedNodes,
   layout,
+  visibleNodeIds,
 }: {
   graph: InstanceGraph;
   selectedNode: number | null;
@@ -314,6 +315,7 @@ function GraphVisualization({
   typeFilter: ContextType | 'all';
   highlightedNodes: Set<number>;
   layout: LayoutType;
+  visibleNodeIds: Set<number> | null; // null = show all, Set = show only these
 }) {
   const width = 800;
   const height = 600;
@@ -328,15 +330,17 @@ function GraphVisualization({
 
   // Check if node matches current filters
   const isNodeVisible = useCallback((node: GraphNode) => {
+    // Playback filter - if animating, node must be in visible set
+    if (visibleNodeIds !== null && !visibleNodeIds.has(node.id)) return false;
     // Type filter
     if (typeFilter !== 'all' && node.type !== typeFilter) return false;
     // Search filter - if searching, node must be in highlighted set
     if (searchQuery && !highlightedNodes.has(node.id)) return false;
     return true;
-  }, [typeFilter, searchQuery, highlightedNodes]);
+  }, [typeFilter, searchQuery, highlightedNodes, visibleNodeIds]);
 
   // Check if any filters are active
-  const hasActiveFilters = typeFilter !== 'all' || searchQuery.length > 0;
+  const hasActiveFilters = typeFilter !== 'all' || searchQuery.length > 0 || visibleNodeIds !== null;
 
   return (
     <svg
@@ -835,6 +839,11 @@ function GraphPageContent() {
   const [copied, setCopied] = useState(false);
   const [layout, setLayout] = useState<LayoutType>(initialLayout);
 
+  // Playback state
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [playbackIndex, setPlaybackIndex] = useState<number | null>(null);
+  const playbackIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
   // Track if we're initializing from URL (to avoid resetting state on first load)
   const isInitialLoad = useRef(true);
 
@@ -937,6 +946,68 @@ function GraphPageContent() {
     setLayout(newLayout);
     updateUrl({ layout: newLayout });
   }, [updateUrl]);
+
+  // Get sorted node IDs for playback
+  const sortedNodeIds = useMemo(() => {
+    if (!graph) return [];
+    return [...graph.nodes].sort((a, b) => a.id - b.id).map(n => n.id);
+  }, [graph]);
+
+  // Compute visible node IDs based on playback state
+  const visibleNodeIds = useMemo(() => {
+    if (playbackIndex === null) return null; // null means show all
+    return new Set(sortedNodeIds.slice(0, playbackIndex + 1));
+  }, [sortedNodeIds, playbackIndex]);
+
+  // Playback controls
+  const startPlayback = useCallback(() => {
+    if (sortedNodeIds.length === 0) return;
+    setPlaybackIndex(0);
+    setIsPlaying(true);
+  }, [sortedNodeIds.length]);
+
+  const pausePlayback = useCallback(() => {
+    setIsPlaying(false);
+    if (playbackIntervalRef.current) {
+      clearInterval(playbackIntervalRef.current);
+      playbackIntervalRef.current = null;
+    }
+  }, []);
+
+  const resetPlayback = useCallback(() => {
+    pausePlayback();
+    setPlaybackIndex(null);
+  }, [pausePlayback]);
+
+  // Playback animation effect
+  useEffect(() => {
+    if (!isPlaying || sortedNodeIds.length === 0) return;
+
+    playbackIntervalRef.current = setInterval(() => {
+      setPlaybackIndex(prev => {
+        if (prev === null) return 0;
+        const next = prev + 1;
+        if (next >= sortedNodeIds.length) {
+          // Reached the end - stop playing
+          setIsPlaying(false);
+          return prev;
+        }
+        return next;
+      });
+    }, 400); // 400ms between nodes
+
+    return () => {
+      if (playbackIntervalRef.current) {
+        clearInterval(playbackIntervalRef.current);
+        playbackIntervalRef.current = null;
+      }
+    };
+  }, [isPlaying, sortedNodeIds.length]);
+
+  // Clean up playback when project changes
+  useEffect(() => {
+    resetPlayback();
+  }, [project, resetPlayback]);
 
   useEffect(() => {
     async function loadGraph() {
@@ -1091,12 +1162,32 @@ function GraphPageContent() {
             handleLayoutChange(nextLayout);
           }
           break;
+
+        case 'p':
+          if (!e.metaKey && !e.ctrlKey) {
+            e.preventDefault();
+            if (playbackIndex === null) {
+              startPlayback();
+            } else if (isPlaying) {
+              pausePlayback();
+            } else {
+              setIsPlaying(true);
+            }
+          }
+          break;
+
+        case 'r':
+          if (!e.metaKey && !e.ctrlKey && playbackIndex !== null) {
+            e.preventDefault();
+            resetPlayback();
+          }
+          break;
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [visibleNodes, focusedNodeIndex, selectedNode, selectedNodeData, handleSearchChange, handleNodeSelect, handleLayoutChange, layout, router]);
+  }, [visibleNodes, focusedNodeIndex, selectedNode, selectedNodeData, handleSearchChange, handleNodeSelect, handleLayoutChange, layout, router, playbackIndex, isPlaying, startPlayback, pausePlayback, resetPlayback]);
 
   return (
     <div className="min-h-screen bg-[var(--background)]">
@@ -1319,6 +1410,44 @@ function GraphPageContent() {
                 <span className="hidden sm:inline">Force</span>
               </button>
             </div>
+            {/* Playback Controls */}
+            <div className="flex items-center gap-1 bg-[var(--background)] rounded-lg p-0.5">
+              {playbackIndex === null ? (
+                <button
+                  onClick={startPlayback}
+                  className="flex items-center gap-1 px-2 py-1 rounded text-xs text-[var(--muted)] hover:text-[var(--foreground)] transition-colors"
+                  title="Play animation - watch the graph build over time (press P)"
+                >
+                  <Play className="w-3 h-3" />
+                  <span className="hidden sm:inline">Play</span>
+                </button>
+              ) : (
+                <>
+                  <button
+                    onClick={isPlaying ? pausePlayback : () => setIsPlaying(true)}
+                    className={cn(
+                      'flex items-center gap-1 px-2 py-1 rounded text-xs transition-colors',
+                      isPlaying
+                        ? 'bg-[var(--primary)] text-white'
+                        : 'text-[var(--muted)] hover:text-[var(--foreground)]'
+                    )}
+                    title={isPlaying ? 'Pause animation' : 'Resume animation'}
+                  >
+                    {isPlaying ? <Pause className="w-3 h-3" /> : <Play className="w-3 h-3" />}
+                  </button>
+                  <button
+                    onClick={resetPlayback}
+                    className="flex items-center gap-1 px-2 py-1 rounded text-xs text-[var(--muted)] hover:text-[var(--foreground)] transition-colors"
+                    title="Reset animation"
+                  >
+                    <RotateCcw className="w-3 h-3" />
+                  </button>
+                  <span className="px-2 text-xs text-[var(--foreground)] font-mono">
+                    {playbackIndex + 1}/{sortedNodeIds.length}
+                  </span>
+                </>
+              )}
+            </div>
             {/* Share Link Button */}
             <button
               onClick={copyShareLink}
@@ -1338,9 +1467,11 @@ function GraphPageContent() {
               )}
             </button>
             <span className="text-xs hidden md:inline">
-              {searchQuery || typeFilter !== 'all'
-                ? 'Filtered nodes are highlighted. Click to select.'
-                : 'Click a node or use arrow keys. Press / to search metadata, F to filter, L to toggle layout. Use main page for content search.'}
+              {playbackIndex !== null
+                ? `Watching instance ${sortedNodeIds[playbackIndex]} appear...`
+                : searchQuery || typeFilter !== 'all'
+                  ? 'Filtered nodes are highlighted. Click to select.'
+                  : 'Click a node or use arrow keys. Press / to search, F to filter, L for layout, P to play.'}
             </span>
           </div>
         )}
@@ -1371,6 +1502,7 @@ function GraphPageContent() {
                 typeFilter={typeFilter}
                 highlightedNodes={highlightedNodes}
                 layout={layout}
+                visibleNodeIds={visibleNodeIds}
               />
             </div>
 
@@ -1436,6 +1568,14 @@ function GraphPageContent() {
               <kbd className="px-2 py-0.5 bg-[var(--surface)] border border-[var(--border)] rounded text-xs font-mono">L</kbd>
               <span className="text-[var(--muted)]">Toggle layout</span>
             </div>
+            <div className="flex items-center gap-2">
+              <kbd className="px-2 py-0.5 bg-[var(--surface)] border border-[var(--border)] rounded text-xs font-mono">P</kbd>
+              <span className="text-[var(--muted)]">Play/pause</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <kbd className="px-2 py-0.5 bg-[var(--surface)] border border-[var(--border)] rounded text-xs font-mono">R</kbd>
+              <span className="text-[var(--muted)]">Reset playback</span>
+            </div>
           </div>
 
           <h3 className="text-lg font-semibold text-[var(--foreground)] mt-8">
@@ -1453,6 +1593,16 @@ function GraphPageContent() {
           <p className="text-[var(--muted)] leading-relaxed mt-2">
             <span className="text-[var(--foreground)]">Force</span> layout uses physics simulation where connected nodes attract and all nodes repel. This creates organic clustering—instances that reference each other cluster together, while isolated nodes drift to the periphery. This reveals natural groupings that other layouts miss: which instances form tight collaboration clusters? Which are bridge nodes connecting different groups?
           </p>
+
+          <h3 className="text-lg font-semibold text-[var(--foreground)] mt-8">
+            Animated Playback
+          </h3>
+          <p className="text-[var(--muted)] leading-relaxed mt-3">
+            Press <kbd className="px-1.5 py-0.5 bg-[var(--surface)] border border-[var(--border)] rounded text-xs font-mono">P</kbd> or click Play to watch the graph build over time. Nodes appear in chronological order—Instance 1 first, then 2, then 3—with connections forming as both endpoints become visible.
+          </p>
+          <p className="text-[var(--muted)] leading-relaxed mt-2">
+            This is the accumulation of knowledge made visible. You can watch sequential instances building on each other, see when the graph becomes densely connected, and understand how collaboration compounds. Pause at any point to examine the graph at that moment in time.
+          </p>
         </div>
       </main>
 
@@ -1461,7 +1611,7 @@ function GraphPageContent() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center text-[var(--muted)] text-sm">
           <p>Upwelling: Deep knowledge rising to the surface</p>
           <p className="mt-2 text-xs">
-            Graph by Instance 8 • Search/filter by Instance 10 • Deep linking by Instance 11 • Timeline layout by Instance 14 • Swimlanes by Instance 19 • Force layout by Instance 2 (exodus)
+            Graph by Instance 8 • Search/filter by Instance 10 • Deep linking by Instance 11 • Timeline layout by Instance 14 • Swimlanes by Instance 19 • Force layout by Instance 2 (exodus) • Playback by Instance 3 (exodus)
           </p>
         </div>
       </footer>
