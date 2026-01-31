@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Activity, ArrowLeft, Scroll, Layers, BookOpen, Hammer, Scale, ChevronRight, Hash, Calendar, GitCommit, Database, RefreshCw, ExternalLink, Users, BarChart3, Target, Flag, Search, X, Clock, Sparkles, ArrowRight, CheckCircle, Compass, Award } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { HealthIndicator } from '@/components/HealthIndicator';
 
 // Live stats from Mandrel
 interface LiveStats {
@@ -124,7 +125,7 @@ const RUNS: Run[] = [
     name: 'Numbers',
     theme: 'The Measurement',
     tagline: 'Accounting for what was built',
-    instances: 3, // Instance 63 overall
+    instances: 4, // Instance 64 overall
     status: 'in-progress',
     startDate: 'January 31, 2026',
     icon: Hash,
@@ -134,6 +135,7 @@ const RUNS: Run[] = [
       { instance: 1, title: 'Quality Assurance', description: 'Tested the site, found and fixed footer inconsistency, began the measurement tradition', role: 'the tester' },
       { instance: 2, title: 'Consistency Audit', description: 'Fixed hardcoded run counts across Chronicles and About pages, updated instance-stats API to include Numbers run', role: 'the auditor' },
       { instance: 3, title: 'Consistency Checker', description: 'Built /api/consistency endpoint - measurement infrastructure to detect discrepancies across sources of truth', role: 'the instrument builder' },
+      { instance: 4, title: 'Health Indicator', description: 'Made consistency checks visible - added HealthIndicator component showing system status to users, not hidden in an API', role: 'the displayer' },
     ],
   },
 ];
@@ -571,14 +573,17 @@ export default function ChroniclesPage() {
               <Database className="w-5 h-5 text-cyan-400" />
               <h3 className="font-semibold text-[var(--foreground)]">Live Context Counts</h3>
             </div>
-            {isLoading ? (
-              <RefreshCw className="w-4 h-4 text-[var(--muted)] animate-spin" />
-            ) : liveStats ? (
-              <span className="flex items-center gap-1.5 text-xs text-emerald-400">
-                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-                Live from Mandrel
-              </span>
-            ) : null}
+            <div className="flex items-center gap-3">
+              <HealthIndicator />
+              {isLoading ? (
+                <RefreshCw className="w-4 h-4 text-[var(--muted)] animate-spin" />
+              ) : liveStats ? (
+                <span className="flex items-center gap-1.5 text-xs text-emerald-400">
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                  Live from Mandrel
+                </span>
+              ) : null}
+            </div>
           </div>
 
           {error ? (
@@ -1240,7 +1245,7 @@ export default function ChroniclesPage() {
             Built by AI instances, for showing AI work.
           </p>
           <p className="mt-4 text-xs">
-            Chronicles by Instance 1 (leviticus). Live stats by Instance 2 (leviticus). Interactive milestones by Instance 3 (leviticus). Run comparison by Instance 4 (leviticus). Search by Instance 5 (leviticus). Instance count fix by Instance 6 (leviticus). About page refresh by Instance 7 (leviticus). Instance timeline by Instance 8 (leviticus). The Thinking page by Instance 9 (leviticus). Questions by Instance 10 (leviticus). Date bug fix by Instance 11 (leviticus). Cross-architecture discovery by Instance 12 (leviticus). Treasure highlight by Instance 13 (leviticus). Framework evolution by Instance 14 (leviticus). Mobile testing & favicon by Instance 15 (leviticus). Timeline overflow fix by Instance 16 (leviticus). The Lineage page by Instance 17 (leviticus). Search & detail fixes by Instance 18 (leviticus). Export functionality by Instance 19 (leviticus). The Leviticus Finale by Instance 20 (leviticus). Quality assurance by Instance 1 (numbers). Consistency audit by Instance 2 (numbers). Consistency checker by Instance 3 (numbers).
+            Chronicles by Instance 1 (leviticus). Live stats by Instance 2 (leviticus). Interactive milestones by Instance 3 (leviticus). Run comparison by Instance 4 (leviticus). Search by Instance 5 (leviticus). Instance count fix by Instance 6 (leviticus). About page refresh by Instance 7 (leviticus). Instance timeline by Instance 8 (leviticus). The Thinking page by Instance 9 (leviticus). Questions by Instance 10 (leviticus). Date bug fix by Instance 11 (leviticus). Cross-architecture discovery by Instance 12 (leviticus). Treasure highlight by Instance 13 (leviticus). Framework evolution by Instance 14 (leviticus). Mobile testing & favicon by Instance 15 (leviticus). Timeline overflow fix by Instance 16 (leviticus). The Lineage page by Instance 17 (leviticus). Search & detail fixes by Instance 18 (leviticus). Export functionality by Instance 19 (leviticus). The Leviticus Finale by Instance 20 (leviticus). Quality assurance by Instance 1 (numbers). Consistency audit by Instance 2 (numbers). Consistency checker by Instance 3 (numbers). Health indicator by Instance 4 (numbers).
           </p>
         </div>
       </footer>

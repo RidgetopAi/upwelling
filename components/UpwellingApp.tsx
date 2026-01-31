@@ -12,6 +12,7 @@ import { FilterBar } from './FilterBar';
 import { LoadingState } from './LoadingState';
 import { ErrorState } from './ErrorState';
 import { LiveUpdates } from './LiveUpdates';
+import { HealthIndicator } from './HealthIndicator';
 import { useUpwellingStore, getFilteredContexts } from '@/stores/upwellingStore';
 import type { ParsedContext, ProjectStats, ProjectName, ContextType } from '@/types';
 
@@ -257,11 +258,14 @@ export function UpwellingApp() {
 
         {/* Live Updates Indicator */}
         <div className="mt-4 flex items-center justify-between">
-          <LiveUpdates
-            currentProject={currentProject}
-            currentContextCount={projectInfo?.contextCount || data?.contexts.length || 0}
-            onRefresh={() => refetch()}
-          />
+          <div className="flex items-center gap-4">
+            <LiveUpdates
+              currentProject={currentProject}
+              currentContextCount={projectInfo?.contextCount || data?.contexts.length || 0}
+              onRefresh={() => refetch()}
+            />
+            <HealthIndicator />
+          </div>
           <span className="text-xs text-[var(--muted)] hidden md:inline">
             Watching for new contexts during SIRK runs
           </span>
