@@ -316,3 +316,203 @@ export function getNotificationSound(): NotificationSound {
   }
   return notificationSoundInstance;
 }
+
+// Playback sound utilities - different tones for different context types
+// Makes the collaboration AUDIBLE - each type has a distinct voice
+type ContextSoundType = 'handoff' | 'reflections' | 'planning' | 'decision' | 'discussion' | 'code' | 'completion' | 'milestone' | 'error';
+
+interface SoundConfig {
+  frequencies: number[];
+  duration: number;
+  type: OscillatorType;
+  volume: number;
+}
+
+// Sound configurations for each context type
+// Musical design: each type has a distinct audio character
+const SOUND_CONFIGS: Record<ContextSoundType, SoundConfig> = {
+  // Handoff: Rising progression - like passing something forward
+  handoff: {
+    frequencies: [523.25, 783.99], // C5 → G5 (perfect fifth, upward motion)
+    duration: 0.12,
+    type: 'sine',
+    volume: 0.2,
+  },
+  // Reflections: Bell-like resonant tone - contemplative
+  reflections: {
+    frequencies: [440], // A4 - pure, meditative
+    duration: 0.25,
+    type: 'triangle',
+    volume: 0.15,
+  },
+  // Planning: Short decisive beep - purposeful
+  planning: {
+    frequencies: [659.25], // E5 - bright, focused
+    duration: 0.08,
+    type: 'square',
+    volume: 0.1,
+  },
+  // Decision: Bright upward ping - decisive
+  decision: {
+    frequencies: [783.99, 1046.5], // G5 → C6 - confident resolution
+    duration: 0.1,
+    type: 'sine',
+    volume: 0.18,
+  },
+  // Discussion: Soft low tone - conversational
+  discussion: {
+    frequencies: [392], // G4 - warm, low
+    duration: 0.15,
+    type: 'sine',
+    volume: 0.12,
+  },
+  // Code: Tech-sounding blip
+  code: {
+    frequencies: [880, 660], // A5 → E5 - descending tech beep
+    duration: 0.06,
+    type: 'sawtooth',
+    volume: 0.08,
+  },
+  // Completion: Satisfying resolution
+  completion: {
+    frequencies: [523.25, 659.25, 783.99], // C5 → E5 → G5 - major triad arpeggio
+    duration: 0.1,
+    type: 'sine',
+    volume: 0.15,
+  },
+  // Milestone: Triumphant fanfare note
+  milestone: {
+    frequencies: [783.99, 1046.5, 783.99], // G5 → C6 → G5
+    duration: 0.12,
+    type: 'sine',
+    volume: 0.2,
+  },
+  // Error: Warning tone
+  error: {
+    frequencies: [440, 370], // A4 → F#4 - minor second, discordant
+    duration: 0.15,
+    type: 'sawtooth',
+    volume: 0.12,
+  },
+};
+
+// Default sound for unknown types
+const DEFAULT_SOUND: SoundConfig = {
+  frequencies: [440],
+  duration: 0.1,
+  type: 'sine',
+  volume: 0.1,
+};
+
+class PlaybackSound {
+  private audioContext: AudioContext | null = null;
+  private enabled: boolean = false;
+  private volume: number = 1.0; // Master volume multiplier
+
+  constructor() {
+    // Initialize from localStorage on first access
+    if (typeof window !== 'undefined') {
+      this.enabled = localStorage.getItem('upwelling-playback-sound-enabled') === 'true';
+      const storedVolume = localStorage.getItem('upwelling-playback-sound-volume');
+      if (storedVolume) {
+        this.volume = parseFloat(storedVolume);
+      }
+    }
+  }
+
+  private getContext(): AudioContext | null {
+    if (typeof window === 'undefined') return null;
+    if (!this.audioContext) {
+      try {
+        this.audioContext = new AudioContext();
+      } catch (e) {
+        console.warn('Web Audio API not available for playback sounds');
+        return null;
+      }
+    }
+    return this.audioContext;
+  }
+
+  isEnabled(): boolean {
+    return this.enabled;
+  }
+
+  setEnabled(enabled: boolean): void {
+    this.enabled = enabled;
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('upwelling-playback-sound-enabled', enabled ? 'true' : 'false');
+    }
+  }
+
+  getVolume(): number {
+    return this.volume;
+  }
+
+  setVolume(volume: number): void {
+    this.volume = Math.max(0, Math.min(1, volume));
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('upwelling-playback-sound-volume', this.volume.toString());
+    }
+  }
+
+  // Play sound for a specific context type
+  async playForType(contextType: string, speedMultiplier: number = 1): Promise<void> {
+    if (!this.enabled) return;
+
+    const ctx = this.getContext();
+    if (!ctx) return;
+
+    // Resume context if suspended (browser autoplay policy)
+    if (ctx.state === 'suspended') {
+      await ctx.resume();
+    }
+
+    const config = SOUND_CONFIGS[contextType as ContextSoundType] || DEFAULT_SOUND;
+    const now = ctx.currentTime;
+
+    // Adjust duration based on playback speed (shorter sounds at higher speeds)
+    const adjustedDuration = config.duration / Math.sqrt(speedMultiplier);
+
+    // Reduce volume at higher speeds to prevent harshness
+    const adjustedVolume = config.volume * this.volume * (1 / Math.sqrt(speedMultiplier));
+
+    config.frequencies.forEach((freq, i) => {
+      const oscillator = ctx.createOscillator();
+      const gainNode = ctx.createGain();
+
+      oscillator.type = config.type;
+      oscillator.frequency.setValueAtTime(freq, now);
+
+      // Timing for multi-note sounds
+      const noteGap = adjustedDuration * 0.5;
+      const startTime = now + i * noteGap;
+
+      // Volume envelope - quick attack, smooth decay
+      gainNode.gain.setValueAtTime(0, startTime);
+      gainNode.gain.linearRampToValueAtTime(adjustedVolume, startTime + 0.01);
+      gainNode.gain.exponentialRampToValueAtTime(0.001, startTime + adjustedDuration);
+
+      oscillator.connect(gainNode);
+      gainNode.connect(ctx.destination);
+
+      oscillator.start(startTime);
+      oscillator.stop(startTime + adjustedDuration + 0.01);
+    });
+  }
+
+  // Play a test sound (cycles through types for preview)
+  async playTest(): Promise<void> {
+    if (!this.enabled) return;
+    await this.playForType('handoff', 1);
+  }
+}
+
+// Singleton instance for playback sounds
+let playbackSoundInstance: PlaybackSound | null = null;
+
+export function getPlaybackSound(): PlaybackSound {
+  if (!playbackSoundInstance) {
+    playbackSoundInstance = new PlaybackSound();
+  }
+  return playbackSoundInstance;
+}
