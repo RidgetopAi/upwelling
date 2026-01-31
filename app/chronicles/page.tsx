@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Activity, ArrowLeft, Scroll, Layers, BookOpen, Hammer, Scale, ChevronRight, Hash, Calendar, GitCommit, Database, RefreshCw, ExternalLink, Users } from 'lucide-react';
+import { Activity, ArrowLeft, Scroll, Layers, BookOpen, Hammer, Scale, ChevronRight, Hash, Calendar, GitCommit, Database, RefreshCw, ExternalLink, Users, BarChart3, Target, Flag } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
 // Live stats from Mandrel
@@ -90,7 +90,7 @@ const RUNS: Run[] = [
     name: 'Leviticus',
     theme: 'The Documentation',
     tagline: 'Codifying the history',
-    instances: 3, // Updated by Instance 3
+    instances: 4, // Updated by Instance 4
     status: 'in-progress',
     startDate: 'January 31, 2026',
     icon: Scale,
@@ -100,6 +100,7 @@ const RUNS: Run[] = [
       { instance: 1, title: 'Chronicles', description: 'This page - documenting all runs', role: 'the chronicler' },
       { instance: 2, title: 'Live Stats', description: 'Real-time context counts from Mandrel', role: 'the statistician' },
       { instance: 3, title: 'Interactive Milestones', description: 'Click-to-explore navigation and instance roles', role: 'the connector' },
+      { instance: 4, title: 'Run Comparison', description: 'Visual comparison charts for runs', role: 'the visualizer' },
     ],
   },
 ];
@@ -376,6 +377,107 @@ export default function ChroniclesPage() {
           </p>
         </section>
 
+        {/* Run Comparison Chart */}
+        <section className="mb-16">
+          <div className="flex items-center gap-3 mb-6">
+            <BarChart3 className="w-6 h-6 text-[var(--primary)]" />
+            <h2 className="text-2xl font-bold text-[var(--foreground)]">Run Comparison</h2>
+          </div>
+          <div className="bg-[var(--surface)] rounded-lg p-6 border border-[var(--border)]">
+            {/* Instance Count Bars */}
+            <div className="mb-8">
+              <div className="flex items-center gap-2 mb-4">
+                <Target className="w-4 h-4 text-[var(--muted)]" />
+                <h3 className="text-sm font-medium text-[var(--muted)] uppercase tracking-wide">Instances per Run</h3>
+              </div>
+              <div className="space-y-3">
+                {RUNS.map((run) => {
+                  const maxInstances = Math.max(...RUNS.map(r => r.instances));
+                  const percentage = (run.instances / maxInstances) * 100;
+                  const Icon = run.icon;
+                  return (
+                    <div key={run.name} className="flex items-center gap-4">
+                      <div className="w-24 flex items-center gap-2">
+                        <Icon className={`w-4 h-4 ${run.color}`} />
+                        <span className="text-sm font-medium text-[var(--foreground)]">{run.name}</span>
+                      </div>
+                      <div className="flex-1 h-8 bg-[var(--background)] rounded-full overflow-hidden relative">
+                        <div
+                          className={`h-full rounded-full transition-all duration-1000 ease-out ${run.name === 'Genesis' ? 'bg-emerald-500' : run.name === 'Exodus' ? 'bg-blue-500' : 'bg-purple-500'}`}
+                          style={{ width: `${percentage}%` }}
+                        />
+                        <span className="absolute inset-0 flex items-center justify-center text-xs font-bold text-white mix-blend-difference">
+                          {run.instances} instances
+                        </span>
+                      </div>
+                      {run.status === 'in-progress' && (
+                        <span className="text-xs px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-400 animate-pulse">
+                          Live
+                        </span>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Milestone Count Bars */}
+            <div className="mb-8">
+              <div className="flex items-center gap-2 mb-4">
+                <Flag className="w-4 h-4 text-[var(--muted)]" />
+                <h3 className="text-sm font-medium text-[var(--muted)] uppercase tracking-wide">Milestones Documented</h3>
+              </div>
+              <div className="space-y-3">
+                {RUNS.map((run) => {
+                  const maxMilestones = Math.max(...RUNS.map(r => r.milestones.length));
+                  const percentage = (run.milestones.length / maxMilestones) * 100;
+                  const Icon = run.icon;
+                  return (
+                    <div key={run.name} className="flex items-center gap-4">
+                      <div className="w-24 flex items-center gap-2">
+                        <Icon className={`w-4 h-4 ${run.color}`} />
+                        <span className="text-sm font-medium text-[var(--foreground)]">{run.name}</span>
+                      </div>
+                      <div className="flex-1 h-8 bg-[var(--background)] rounded-full overflow-hidden relative">
+                        <div
+                          className={`h-full rounded-full transition-all duration-1000 ease-out ${run.name === 'Genesis' ? 'bg-emerald-500/70' : run.name === 'Exodus' ? 'bg-blue-500/70' : 'bg-purple-500/70'}`}
+                          style={{ width: `${percentage}%` }}
+                        />
+                        <span className="absolute inset-0 flex items-center justify-center text-xs font-bold text-white mix-blend-difference">
+                          {run.milestones.length} milestones
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Run Themes Summary */}
+            <div className="border-t border-[var(--border)] pt-6">
+              <h3 className="text-sm font-medium text-[var(--muted)] uppercase tracking-wide mb-4">Themes at a Glance</h3>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                {RUNS.map((run) => {
+                  const Icon = run.icon;
+                  return (
+                    <div
+                      key={run.name}
+                      className={`rounded-lg p-4 ${run.bgColor} border border-[var(--border)]`}
+                    >
+                      <div className="flex items-center gap-2 mb-2">
+                        <Icon className={`w-5 h-5 ${run.color}`} />
+                        <span className={`font-bold ${run.color}`}>{run.name}</span>
+                      </div>
+                      <p className="text-sm text-[var(--foreground)] font-medium">{run.theme}</p>
+                      <p className="text-xs text-[var(--muted)] mt-1">{run.tagline}</p>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        </section>
+
         {/* The Numbers */}
         <section className="mb-16">
           <h2 className="text-2xl font-bold text-[var(--foreground)] mb-6">The Numbers</h2>
@@ -433,7 +535,7 @@ export default function ChroniclesPage() {
             Built by AI instances, for showing AI work.
           </p>
           <p className="mt-4 text-xs">
-            Chronicles by Instance 1 (leviticus). Live stats by Instance 2 (leviticus). Interactive milestones by Instance 3 (leviticus).
+            Chronicles by Instance 1 (leviticus). Live stats by Instance 2 (leviticus). Interactive milestones by Instance 3 (leviticus). Run comparison by Instance 4 (leviticus).
           </p>
         </div>
       </footer>
