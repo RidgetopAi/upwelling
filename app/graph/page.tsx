@@ -298,24 +298,34 @@ function calculateNodePositions(
   });
 }
 
+interface HoverInfo {
+  node: GraphNode;
+  x: number;
+  y: number;
+}
+
 function GraphVisualization({
   graph,
   selectedNode,
   onNodeClick,
+  onNodeHover,
   searchQuery,
   typeFilter,
   highlightedNodes,
   layout,
   visibleNodeIds,
+  svgRef,
 }: {
   graph: InstanceGraph;
   selectedNode: number | null;
   onNodeClick: (id: number | null) => void;
+  onNodeHover: (info: HoverInfo | null) => void;
   searchQuery: string;
   typeFilter: ContextType | 'all';
   highlightedNodes: Set<number>;
   layout: LayoutType;
   visibleNodeIds: Set<number> | null; // null = show all, Set = show only these
+  svgRef: React.RefObject<SVGSVGElement | null>;
 }) {
   const width = 800;
   const height = 600;
@@ -344,6 +354,7 @@ function GraphVisualization({
 
   return (
     <svg
+      ref={svgRef}
       viewBox={`0 0 ${width} ${height}`}
       className="w-full h-auto max-h-[70vh] border border-[var(--border)] rounded-lg bg-[var(--background)]"
     >
@@ -485,6 +496,8 @@ function GraphVisualization({
           <g
             key={node.id}
             onClick={() => onNodeClick(isSelected ? null : node.id)}
+            onMouseEnter={() => onNodeHover({ node, x, y })}
+            onMouseLeave={() => onNodeHover(null)}
             className="cursor-pointer"
             style={{ opacity, transition: 'all 0.3s ease-out' }}
           >
@@ -794,6 +807,82 @@ function NodeDetail({ node, graph }: { node: GraphNode; graph: InstanceGraph }) 
   );
 }
 
+// Node Tooltip Component - shows on hover
+function NodeTooltip({ hoverInfo, svgRef }: { hoverInfo: HoverInfo | null; svgRef: React.RefObject<SVGSVGElement | null> }) {
+  if (!hoverInfo || !svgRef.current) return null;
+
+  const { node, x, y } = hoverInfo;
+
+  // Convert SVG coordinates to screen coordinates
+  const svg = svgRef.current;
+  const svgRect = svg.getBoundingClientRect();
+  const viewBox = svg.viewBox.baseVal;
+
+  // Calculate scale factor
+  const scaleX = svgRect.width / viewBox.width;
+  const scaleY = svgRect.height / viewBox.height;
+
+  // Convert SVG position to screen position
+  const screenX = svgRect.left + x * scaleX;
+  const screenY = svgRect.top + y * scaleY;
+
+  // Position tooltip to the right of the node, offset to avoid covering it
+  const tooltipOffsetX = 35 * scaleX;
+  const tooltipOffsetY = -20;
+
+  // Type badge colors
+  const typeBadgeColors: Record<string, string> = {
+    handoff: 'bg-blue-500',
+    reflections: 'bg-purple-500',
+    planning: 'bg-green-500',
+    decision: 'bg-amber-500',
+    discussion: 'bg-slate-400',
+    code: 'bg-cyan-500',
+    completion: 'bg-emerald-500',
+    milestone: 'bg-yellow-500',
+    error: 'bg-red-500',
+  };
+
+  return (
+    <div
+      className="fixed z-40 pointer-events-none animate-in fade-in zoom-in-95 duration-150"
+      style={{
+        left: screenX + tooltipOffsetX,
+        top: screenY + tooltipOffsetY,
+      }}
+    >
+      <div className="bg-[var(--surface)] border border-[var(--border)] rounded-lg shadow-xl px-3 py-2 min-w-[160px] max-w-[240px]">
+        {/* Header with instance number */}
+        <div className="flex items-center justify-between gap-2 mb-1.5">
+          <span className="text-sm font-semibold text-[var(--foreground)]">
+            Instance {node.id}
+          </span>
+          <span className={cn(
+            'px-1.5 py-0.5 text-[10px] font-medium text-white rounded',
+            typeBadgeColors[node.type] || 'bg-slate-400'
+          )}>
+            {node.type}
+          </span>
+        </div>
+
+        {/* Role */}
+        {node.role && (
+          <p className="text-xs text-[var(--muted)] leading-tight mb-1.5">
+            {node.role.length > 50 ? node.role.slice(0, 50) + '...' : node.role}
+          </p>
+        )}
+
+        {/* Context count */}
+        <div className="text-[10px] text-[var(--muted)] flex items-center gap-1">
+          <span>{node.contextCount} context{node.contextCount !== 1 ? 's' : ''}</span>
+          <span className="text-[var(--border)]">•</span>
+          <span className="text-[var(--primary)]">Click for details</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // Keyboard Shortcut Help Modal
 function ShortcutHelpModal({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
   if (!isOpen) return null;
@@ -936,6 +1025,8 @@ function GraphPageContent() {
   const [copied, setCopied] = useState(false);
   const [layout, setLayout] = useState<LayoutType>(initialLayout);
   const [showShortcutHelp, setShowShortcutHelp] = useState(false);
+  const [hoverInfo, setHoverInfo] = useState<HoverInfo | null>(null);
+  const svgRef = useRef<SVGSVGElement | null>(null);
 
   // Playback state
   const [isPlaying, setIsPlaying] = useState(false);
@@ -1793,17 +1884,20 @@ function GraphPageContent() {
         {/* Graph + Detail */}
         {graph && !loading && (
           <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
-            <div className="lg:col-span-3">
+            <div className="lg:col-span-3 relative">
               <GraphVisualization
                 graph={graph}
                 selectedNode={selectedNode}
                 onNodeClick={handleNodeSelect}
+                onNodeHover={setHoverInfo}
                 searchQuery={searchQuery}
                 typeFilter={typeFilter}
                 highlightedNodes={highlightedNodes}
                 layout={layout}
                 visibleNodeIds={visibleNodeIds}
+                svgRef={svgRef}
               />
+              <NodeTooltip hoverInfo={hoverInfo} svgRef={svgRef} />
             </div>
 
             <div className="lg:col-span-1">
@@ -1973,7 +2067,7 @@ function GraphPageContent() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center text-[var(--muted)] text-sm">
           <p>Upwelling: Deep knowledge rising to the surface</p>
           <p className="mt-2 text-xs">
-            Graph by Instance 8 • Search/filter by Instance 10 • Deep linking by Instance 11 • Timeline layout by Instance 14 • Swimlanes by Instance 19 • Force layout by Instance 2 (exodus) • Playback by Instance 3 (exodus) • Enhanced search by Instance 4 (exodus) • Playback controls by Instance 5 (exodus) • Playback sounds by Instance 6 (exodus) • Volume control by Instance 7 (exodus) • Keyboard help by Instance 8 (exodus)
+            Graph by Instance 8 • Search/filter by Instance 10 • Deep linking by Instance 11 • Timeline layout by Instance 14 • Swimlanes by Instance 19 • Force layout by Instance 2 (exodus) • Playback by Instance 3 (exodus) • Enhanced search by Instance 4 (exodus) • Playback controls by Instance 5 (exodus) • Playback sounds by Instance 6 (exodus) • Volume control by Instance 7 (exodus) • Keyboard help by Instance 8 (exodus) • Node tooltips by Instance 9 (exodus)
           </p>
         </div>
       </footer>
