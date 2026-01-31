@@ -4,6 +4,7 @@ import { X, Hash, Clock, Tag, Lightbulb, Copy, Check } from 'lucide-react';
 import { useState } from 'react';
 import { useUpwellingStore } from '@/stores/upwellingStore';
 import { cn, formatDate } from '@/lib/utils';
+import { ProcessSections } from './ProcessSections';
 import type { ParsedContext } from '@/types';
 
 interface ContextDetailProps {
@@ -117,11 +118,11 @@ export function ContextDetail({ context }: ContextDetailProps) {
         </div>
       )}
 
-      {/* Full content */}
+      {/* Full content with process sections */}
       <div className="p-4">
         <div className="flex items-center justify-between mb-3">
           <h3 className="text-sm font-medium text-[var(--foreground)]">
-            Full Content
+            Content
           </h3>
           <button
             onClick={handleCopy}
@@ -140,9 +141,7 @@ export function ContextDetail({ context }: ContextDetailProps) {
             )}
           </button>
         </div>
-        <pre className="text-sm text-[var(--foreground)] whitespace-pre-wrap font-mono bg-[var(--background)] p-4 rounded-lg overflow-x-auto max-h-[60vh]">
-          {context.content}
-        </pre>
+        <ProcessSections content={context.content} />
       </div>
     </div>
   );

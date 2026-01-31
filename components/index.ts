@@ -6,3 +6,4 @@ export { StatsPanel } from './StatsPanel';
 export { FilterBar } from './FilterBar';
 export { LoadingState } from './LoadingState';
 export { ErrorState } from './ErrorState';
+export { ProcessSections } from './ProcessSections';
