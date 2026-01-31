@@ -391,6 +391,19 @@ function GraphVisualization({
     lastCenter: { x: 0, y: 0 },
   });
 
+  // Double-tap tracking state (separate from touch gesture state)
+  const [doubleTapState, setDoubleTapState] = useState<{
+    lastTapTime: number;
+    lastTapPosition: { x: number; y: number };
+  }>({
+    lastTapTime: 0,
+    lastTapPosition: { x: 0, y: 0 },
+  });
+
+  // Double-tap constants
+  const DOUBLE_TAP_THRESHOLD_MS = 300;
+  const DOUBLE_TAP_MAX_DISTANCE = 30;
+
   // Handle mousewheel zoom
   const handleWheel = useCallback((e: React.WheelEvent<SVGSVGElement>) => {
     e.preventDefault();
@@ -584,9 +597,74 @@ function GraphVisualization({
   // Handle touch end
   const handleTouchEnd = useCallback((e: React.TouchEvent<SVGSVGElement>) => {
     const touches = e.touches;
+    const changedTouches = e.changedTouches;
 
     if (touches.length === 0) {
-      // All fingers lifted
+      // All fingers lifted - check for double-tap
+      const svg = svgRef.current;
+
+      // Only check for double-tap if it was a single-finger gesture (pan mode or quick tap)
+      if (changedTouches.length === 1 && touchState.mode !== 'pinch' && svg) {
+        const touchEndX = changedTouches[0].clientX;
+        const touchEndY = changedTouches[0].clientY;
+        const now = Date.now();
+
+        // Check if this tap is close enough to the start position (was a tap, not a drag)
+        const startPos = touchState.startTouches[0];
+        const moveDistance = startPos
+          ? Math.sqrt(Math.pow(touchEndX - startPos.x, 2) + Math.pow(touchEndY - startPos.y, 2))
+          : 0;
+
+        // Only consider it a tap if finger didn't move much
+        if (moveDistance < DOUBLE_TAP_MAX_DISTANCE) {
+          // Check if this is close to the last tap (double-tap detection)
+          const timeSinceLastTap = now - doubleTapState.lastTapTime;
+          const distanceFromLastTap = Math.sqrt(
+            Math.pow(touchEndX - doubleTapState.lastTapPosition.x, 2) +
+            Math.pow(touchEndY - doubleTapState.lastTapPosition.y, 2)
+          );
+
+          if (timeSinceLastTap < DOUBLE_TAP_THRESHOLD_MS && distanceFromLastTap < DOUBLE_TAP_MAX_DISTANCE) {
+            // Double-tap detected! Zoom in or out
+            const rect = svg.getBoundingClientRect();
+            const viewBox = svg.viewBox.baseVal;
+
+            // Convert tap position to SVG viewBox coordinates
+            const tapX = ((touchEndX - rect.left) / rect.width) * viewBox.width;
+            const tapY = ((touchEndY - rect.top) / rect.height) * viewBox.height;
+
+            // Decide zoom direction: zoom in to 2x, or reset if already zoomed
+            const targetScale = zoomPan.scale >= 1.9 ? 1 : 2;
+
+            if (targetScale === 1) {
+              // Reset to default
+              onZoomPan({ scale: 1, translateX: 0, translateY: 0 });
+            } else {
+              // Zoom to 2x centered on tap position
+              const scaleRatio = targetScale / zoomPan.scale;
+              const newTranslateX = tapX - scaleRatio * (tapX - zoomPan.translateX);
+              const newTranslateY = tapY - scaleRatio * (tapY - zoomPan.translateY);
+
+              onZoomPan({
+                scale: targetScale,
+                translateX: newTranslateX,
+                translateY: newTranslateY,
+              });
+            }
+
+            // Reset tap state after double-tap is processed
+            setDoubleTapState({ lastTapTime: 0, lastTapPosition: { x: 0, y: 0 } });
+          } else {
+            // Not a double-tap - record this tap for potential next double-tap
+            setDoubleTapState({ lastTapTime: now, lastTapPosition: { x: touchEndX, y: touchEndY } });
+          }
+        } else {
+          // It was a drag, not a tap - reset tap state
+          setDoubleTapState({ lastTapTime: 0, lastTapPosition: { x: 0, y: 0 } });
+        }
+      }
+
+      // Reset touch gesture state
       setTouchState({
         mode: 'none',
         startTouches: [],
@@ -603,8 +681,10 @@ function GraphVisualization({
         startScale: zoomPan.scale,
         lastCenter: { x: touches[0].clientX, y: touches[0].clientY },
       });
+      // Reset double-tap state when switching modes
+      setDoubleTapState({ lastTapTime: 0, lastTapPosition: { x: 0, y: 0 } });
     }
-  }, [touchState.mode, zoomPan.scale]);
+  }, [touchState, zoomPan, onZoomPan, svgRef, doubleTapState, DOUBLE_TAP_THRESHOLD_MS, DOUBLE_TAP_MAX_DISTANCE]);
 
   return (
     <svg
@@ -2733,7 +2813,7 @@ function GraphPageContent() {
             <span className="text-[var(--foreground)]">Mini-map:</span> A small overview of the entire graph appears in the bottom-right corner. The rectangle shows your current viewport. Click anywhere on the mini-map to navigate directly to that location. Press <kbd className="px-1.5 py-0.5 bg-[var(--surface)] border border-[var(--border)] rounded text-xs font-mono">M</kbd> to toggle the mini-map visibility.
           </p>
           <p className="text-[var(--muted)] leading-relaxed mt-2">
-            <span className="text-[var(--foreground)]">Touch gestures:</span> On mobile and tablet devices, use pinch-to-zoom with two fingers to zoom in and out. Swipe with a single finger to pan around the graph. The same 50%-400% zoom range applies.
+            <span className="text-[var(--foreground)]">Touch gestures:</span> On mobile and tablet devices, use pinch-to-zoom with two fingers to zoom in and out. Swipe with a single finger to pan around the graph. Double-tap to quickly zoom in to 2x on a specific location, or double-tap again to reset. The same 50%-400% zoom range applies.
           </p>
 
           <h3 className="text-lg font-semibold text-[var(--foreground)] mt-8">
@@ -2799,7 +2879,7 @@ function GraphPageContent() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center text-[var(--muted)] text-sm">
           <p>Upwelling: Deep knowledge rising to the surface</p>
           <p className="mt-2 text-xs">
-            Graph by Instance 8 • Search/filter by Instance 10 • Deep linking by Instance 11 • Timeline layout by Instance 14 • Swimlanes by Instance 19 • Force layout by Instance 2 (exodus) • Playback by Instance 3 (exodus) • Enhanced search by Instance 4 (exodus) • Playback controls by Instance 5 (exodus) • Playback sounds by Instance 6 (exodus) • Volume control by Instance 7 (exodus) • Keyboard help by Instance 8 (exodus) • Node tooltips by Instance 9 (exodus) • Zoom/pan by Instance 10 (exodus) • Mini-map by Instance 11 (exodus) • Edge tooltips by Instance 12 (exodus) • Touch gestures by Instance 13 (exodus)
+            Graph by Instance 8 • Search/filter by Instance 10 • Deep linking by Instance 11 • Timeline layout by Instance 14 • Swimlanes by Instance 19 • Force layout by Instance 2 (exodus) • Playback by Instance 3 (exodus) • Enhanced search by Instance 4 (exodus) • Playback controls by Instance 5 (exodus) • Playback sounds by Instance 6 (exodus) • Volume control by Instance 7 (exodus) • Keyboard help by Instance 8 (exodus) • Node tooltips by Instance 9 (exodus) • Zoom/pan by Instance 10 (exodus) • Mini-map by Instance 11 (exodus) • Edge tooltips by Instance 12 (exodus) • Touch gestures by Instance 13 (exodus) • Double-tap zoom by Instance 14 (exodus)
           </p>
         </div>
       </footer>
