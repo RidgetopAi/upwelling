@@ -1768,6 +1768,19 @@ function GraphPageContent() {
     ? (searchParams.get('layout') as LayoutType)
     : 'circular';
 
+  // Parse initial zoom/pan state from URL (view=scale,translateX,translateY)
+  const parseViewState = (): ZoomPanState | null => {
+    const viewParam = searchParams.get('view');
+    if (!viewParam) return null;
+    const parts = viewParam.split(',').map(Number);
+    if (parts.length !== 3 || parts.some(isNaN)) return null;
+    const [scale, translateX, translateY] = parts;
+    // Validate scale is within bounds
+    if (scale < 0.5 || scale > 4) return null;
+    return { scale, translateX, translateY };
+  };
+  const initialZoomPan = parseViewState();
+
   const [project, setProject] = useState<ProjectName>(
     initialProject === 'upwelling' ? 'upwelling' : 'emergence-notes'
   );
@@ -1787,12 +1800,10 @@ function GraphPageContent() {
   const [edgeHoverInfo, setEdgeHoverInfo] = useState<EdgeHoverInfo | null>(null);
   const svgRef = useRef<SVGSVGElement | null>(null);
 
-  // Zoom and pan state
-  const [zoomPan, setZoomPan] = useState<ZoomPanState>({
-    scale: 1,
-    translateX: 0,
-    translateY: 0,
-  });
+  // Zoom and pan state (initialized from URL if present)
+  const [zoomPan, setZoomPan] = useState<ZoomPanState>(
+    initialZoomPan || { scale: 1, translateX: 0, translateY: 0 }
+  );
 
   // Zoom control functions
   const zoomIn = useCallback(() => {
@@ -1854,6 +1865,7 @@ function GraphPageContent() {
     type?: ContextType | 'all';
     node?: number | null;
     layout?: LayoutType;
+    view?: ZoomPanState | null; // null to remove from URL (reset to default)
   }) => {
     const params = new URLSearchParams(searchParams.toString());
 
@@ -1902,6 +1914,17 @@ function GraphPageContent() {
       }
     }
 
+    // Update or remove view param (zoom/pan state)
+    if (updates.view !== undefined) {
+      if (updates.view === null || (updates.view.scale === 1 && updates.view.translateX === 0 && updates.view.translateY === 0)) {
+        params.delete('view'); // Default, don't include in URL
+      } else {
+        // Round to 2 decimal places to keep URL clean
+        const { scale, translateX, translateY } = updates.view;
+        params.set('view', `${scale.toFixed(2)},${translateX.toFixed(0)},${translateY.toFixed(0)}`);
+      }
+    }
+
     const queryString = params.toString();
     const newUrl = queryString ? `${pathname}?${queryString}` : pathname;
     router.replace(newUrl, { scroll: false });
@@ -1946,6 +1969,33 @@ function GraphPageContent() {
     setLayout(newLayout);
     updateUrl({ layout: newLayout });
   }, [updateUrl]);
+
+  // Debounced URL update for zoom/pan changes
+  // This avoids flooding the URL with updates during smooth pan/zoom
+  const urlUpdateTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    // Skip URL update on initial load (when URL already has view state)
+    if (isInitialLoad.current) {
+      isInitialLoad.current = false;
+      return;
+    }
+
+    // Clear any pending update
+    if (urlUpdateTimeoutRef.current) {
+      clearTimeout(urlUpdateTimeoutRef.current);
+    }
+
+    // Schedule debounced URL update (300ms after last change)
+    urlUpdateTimeoutRef.current = setTimeout(() => {
+      updateUrl({ view: zoomPan });
+    }, 300);
+
+    return () => {
+      if (urlUpdateTimeoutRef.current) {
+        clearTimeout(urlUpdateTimeoutRef.current);
+      }
+    };
+  }, [zoomPan, updateUrl]);
 
   // Get sorted node IDs for playback
   const sortedNodeIds = useMemo(() => {
@@ -2971,6 +3021,19 @@ function GraphPageContent() {
           <p className="text-[var(--muted)] leading-relaxed mt-4">
             This is the accumulation of knowledge made visible—and audible. You can watch sequential instances building on each other, see when the graph becomes densely connected, hear the rhythm of different context types, and understand how collaboration compounds.
           </p>
+
+          <h3 className="text-lg font-semibold text-[var(--foreground)] mt-8">
+            Sharing & Bookmarking
+          </h3>
+          <p className="text-[var(--muted)] leading-relaxed mt-3">
+            <span className="text-[var(--foreground)]">Share your view:</span> The URL automatically captures your current view state—zoom level, pan position, selected layout, and any active filters. Click the share button to copy a link that takes others directly to your exact view of the graph.
+          </p>
+          <p className="text-[var(--muted)] leading-relaxed mt-2">
+            <span className="text-[var(--foreground)]">Bookmarking:</span> Simply bookmark the page to save your current view. When you return, the graph will restore to exactly where you left off—same zoom, same pan position, same layout.
+          </p>
+          <p className="text-[var(--muted)] leading-relaxed mt-2">
+            <span className="text-[var(--foreground)]">Deep linking:</span> Found an interesting cluster? Zoomed into a particular instance? Share the URL and others will see exactly what you see. The view state updates in real-time as you navigate, with a brief delay to keep URLs clean during smooth panning.
+          </p>
         </div>
       </main>
 
@@ -2979,7 +3042,7 @@ function GraphPageContent() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center text-[var(--muted)] text-sm">
           <p>Upwelling: Deep knowledge rising to the surface</p>
           <p className="mt-2 text-xs">
-            Graph by Instance 8 • Search/filter by Instance 10 • Deep linking by Instance 11 • Timeline layout by Instance 14 • Swimlanes by Instance 19 • Force layout by Instance 2 (exodus) • Playback by Instance 3 (exodus) • Enhanced search by Instance 4 (exodus) • Playback controls by Instance 5 (exodus) • Playback sounds by Instance 6 (exodus) • Volume control by Instance 7 (exodus) • Keyboard help by Instance 8 (exodus) • Node tooltips by Instance 9 (exodus) • Zoom/pan by Instance 10 (exodus) • Mini-map by Instance 11 (exodus) • Edge tooltips by Instance 12 (exodus) • Touch gestures by Instance 13 (exodus) • Double-tap zoom by Instance 14 (exodus) • Mini-map drag by Instance 15 (exodus)
+            Graph by Instance 8 • Search/filter by Instance 10 • Deep linking by Instance 11 • Timeline layout by Instance 14 • Swimlanes by Instance 19 • Force layout by Instance 2 (exodus) • Playback by Instance 3 (exodus) • Enhanced search by Instance 4 (exodus) • Playback controls by Instance 5 (exodus) • Playback sounds by Instance 6 (exodus) • Volume control by Instance 7 (exodus) • Keyboard help by Instance 8 (exodus) • Node tooltips by Instance 9 (exodus) • Zoom/pan by Instance 10 (exodus) • Mini-map by Instance 11 (exodus) • Edge tooltips by Instance 12 (exodus) • Touch gestures by Instance 13 (exodus) • Double-tap zoom by Instance 14 (exodus) • Mini-map drag by Instance 15 (exodus) • URL view sharing by Instance 16 (exodus)
           </p>
         </div>
       </footer>
