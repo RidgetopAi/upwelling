@@ -2,7 +2,7 @@
 
 import { useState, useCallback } from 'react';
 import Link from 'next/link';
-import { Search, Activity, Grid, List, BookOpen, Layers, X, Loader2, Info, Network, Award, Scroll, Lightbulb, GitCommit } from 'lucide-react';
+import { Search, Activity, Grid, List, BookOpen, Layers, X, Loader2, Info, Network, Award, Scroll, Lightbulb, GitCommit, Download } from 'lucide-react';
 import { useUpwellingStore } from '@/stores/upwellingStore';
 import { cn } from '@/lib/utils';
 import { HealthStatus } from './HealthStatus';
@@ -50,6 +50,38 @@ export function Header() {
   } = useUpwellingStore();
 
   const [localQuery, setLocalQuery] = useState(searchQuery);
+  const [isExporting, setIsExporting] = useState(false);
+
+  const handleExport = useCallback(async () => {
+    setIsExporting(true);
+    try {
+      // Trigger download via the export API
+      const response = await fetch(`/api/export?project=${currentProject}&format=json`);
+      if (!response.ok) {
+        throw new Error('Export failed');
+      }
+
+      // Get the filename from content-disposition header
+      const contentDisposition = response.headers.get('content-disposition');
+      const filenameMatch = contentDisposition?.match(/filename="(.+)"/);
+      const filename = filenameMatch?.[1] || `${currentProject}-contexts.json`;
+
+      // Create blob and download
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (error) {
+      console.error('Export failed:', error);
+    } finally {
+      setIsExporting(false);
+    }
+  }, [currentProject]);
 
   const handleSearch = useCallback(async () => {
     if (!localQuery.trim()) {
@@ -218,6 +250,21 @@ export function Header() {
                 <span className="hidden lg:inline">About</span>
               </Link>
 
+              {/* Export Button */}
+              <button
+                onClick={handleExport}
+                disabled={isExporting}
+                className="flex items-center gap-1.5 px-2 py-1.5 text-sm text-[var(--muted)] hover:text-[var(--foreground)] transition-colors disabled:opacity-50"
+                title={`Export ${currentProject} contexts as JSON`}
+              >
+                {isExporting ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Download className="w-4 h-4" />
+                )}
+                <span className="hidden lg:inline">Export</span>
+              </button>
+
               {/* Health Status */}
               <HealthStatus />
             </nav>
@@ -338,6 +385,19 @@ export function Header() {
               >
                 <Info className="w-4 h-4" />
               </Link>
+              {/* Export Button */}
+              <button
+                onClick={handleExport}
+                disabled={isExporting}
+                className="p-1.5 text-[var(--muted)] hover:text-[var(--foreground)] transition-colors disabled:opacity-50"
+                title={`Export ${currentProject} contexts as JSON`}
+              >
+                {isExporting ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Download className="w-4 h-4" />
+                )}
+              </button>
               {/* Health Status */}
               <HealthStatus />
             </div>

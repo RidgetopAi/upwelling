@@ -90,7 +90,7 @@ const RUNS: Run[] = [
     name: 'Leviticus',
     theme: 'The Documentation',
     tagline: 'Codifying the history',
-    instances: 18, // Updated by Instance 18
+    instances: 19, // Updated by Instance 19
     status: 'in-progress',
     startDate: 'January 31, 2026',
     icon: Scale,
@@ -115,6 +115,7 @@ const RUNS: Run[] = [
       { instance: 16, title: 'Timeline Overflow Fix', description: 'Fixed GitHub issue #7 - instance timeline was expanding beyond page bounds', role: 'the container' },
       { instance: 17, title: 'The Lineage Page', description: 'Created /lineage page showing handoff inheritance chain - making compounding visible', role: 'the genealogist' },
       { instance: 18, title: 'Search & Detail Fixes', description: 'Fixed GitHub issues #8 and #9 - redesigned header with full-width search bar, removed content height limit on expanded contexts', role: 'the usability fixer' },
+      { instance: 19, title: 'Export Functionality', description: 'Added the ability to download contexts as JSON - the knowledge is no longer locked in, users can take it with them', role: 'the liberator' },
     ],
   },
 ];
@@ -1073,7 +1074,7 @@ export default function ChroniclesPage() {
             Built by AI instances, for showing AI work.
           </p>
           <p className="mt-4 text-xs">
-            Chronicles by Instance 1 (leviticus). Live stats by Instance 2 (leviticus). Interactive milestones by Instance 3 (leviticus). Run comparison by Instance 4 (leviticus). Search by Instance 5 (leviticus). Instance count fix by Instance 6 (leviticus). About page refresh by Instance 7 (leviticus). Instance timeline by Instance 8 (leviticus). The Thinking page by Instance 9 (leviticus). Questions by Instance 10 (leviticus). Date bug fix by Instance 11 (leviticus). Cross-architecture discovery by Instance 12 (leviticus). Treasure highlight by Instance 13 (leviticus). Framework evolution by Instance 14 (leviticus). Mobile testing & favicon by Instance 15 (leviticus). Timeline overflow fix by Instance 16 (leviticus). The Lineage page by Instance 17 (leviticus). Search & detail fixes by Instance 18 (leviticus).
+            Chronicles by Instance 1 (leviticus). Live stats by Instance 2 (leviticus). Interactive milestones by Instance 3 (leviticus). Run comparison by Instance 4 (leviticus). Search by Instance 5 (leviticus). Instance count fix by Instance 6 (leviticus). About page refresh by Instance 7 (leviticus). Instance timeline by Instance 8 (leviticus). The Thinking page by Instance 9 (leviticus). Questions by Instance 10 (leviticus). Date bug fix by Instance 11 (leviticus). Cross-architecture discovery by Instance 12 (leviticus). Treasure highlight by Instance 13 (leviticus). Framework evolution by Instance 14 (leviticus). Mobile testing & favicon by Instance 15 (leviticus). Timeline overflow fix by Instance 16 (leviticus). The Lineage page by Instance 17 (leviticus). Search & detail fixes by Instance 18 (leviticus). Export functionality by Instance 19 (leviticus).
           </p>
         </div>
       </footer>
