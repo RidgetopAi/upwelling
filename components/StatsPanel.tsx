@@ -1,8 +1,18 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import { FileText, Users, Calendar, Boxes, Search, Info } from 'lucide-react';
 import { cn, formatDate } from '@/lib/utils';
 import type { ProjectStats, ProjectName } from '@/types';
+
+interface InstanceStats {
+  totalInstances: number;
+  byRun: {
+    genesis: number;
+    exodus: number;
+    leviticus: number;
+  };
+}
 
 interface StatsPanelProps {
   stats: ProjectStats;
@@ -12,6 +22,29 @@ interface StatsPanelProps {
 
 export function StatsPanel({ stats, projectTotalContexts, currentProject }: StatsPanelProps) {
   const showingPartial = projectTotalContexts && projectTotalContexts > stats.totalContexts;
+  const [instanceStats, setInstanceStats] = useState<InstanceStats | null>(null);
+
+  // Fetch accurate instance count for upwelling project
+  useEffect(() => {
+    if (currentProject === 'upwelling') {
+      fetch('/api/instance-stats')
+        .then(res => res.json())
+        .then(data => setInstanceStats(data))
+        .catch(err => console.error('Failed to fetch instance stats:', err));
+    } else {
+      setInstanceStats(null);
+    }
+  }, [currentProject]);
+
+  // Use accurate instance count for upwelling, fallback to computed stats otherwise
+  const displayInstanceCount = currentProject === 'upwelling' && instanceStats
+    ? instanceStats.totalInstances
+    : stats.instanceCount;
+
+  // Build subtext for instances showing run breakdown for upwelling
+  const instanceSubtext = currentProject === 'upwelling' && instanceStats
+    ? `G:${instanceStats.byRun.genesis} E:${instanceStats.byRun.exodus} L:${instanceStats.byRun.leviticus}`
+    : undefined;
 
   return (
     <div className="space-y-4 mb-8">
@@ -25,7 +58,8 @@ export function StatsPanel({ stats, projectTotalContexts, currentProject }: Stat
         <StatCard
           icon={<Users className="w-5 h-5" />}
           label="Instances"
-          value={stats.instanceCount}
+          value={displayInstanceCount}
+          subtext={instanceSubtext}
           color="green"
         />
         <StatCard
