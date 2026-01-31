@@ -376,6 +376,21 @@ function GraphVisualization({
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
 
+  // Touch gesture state
+  const [touchState, setTouchState] = useState<{
+    mode: 'none' | 'pan' | 'pinch';
+    startTouches: { x: number; y: number }[];
+    startDistance: number;
+    startScale: number;
+    lastCenter: { x: number; y: number };
+  }>({
+    mode: 'none',
+    startTouches: [],
+    startDistance: 0,
+    startScale: 1,
+    lastCenter: { x: 0, y: 0 },
+  });
+
   // Handle mousewheel zoom
   const handleWheel = useCallback((e: React.WheelEvent<SVGSVGElement>) => {
     e.preventDefault();
@@ -448,6 +463,149 @@ function GraphVisualization({
     setIsDragging(false);
   }, []);
 
+  // Get distance between two touch points
+  const getTouchDistance = useCallback((touches: React.TouchList) => {
+    if (touches.length < 2) return 0;
+    const dx = touches[0].clientX - touches[1].clientX;
+    const dy = touches[0].clientY - touches[1].clientY;
+    return Math.sqrt(dx * dx + dy * dy);
+  }, []);
+
+  // Get center point between two touches
+  const getTouchCenter = useCallback((touches: React.TouchList) => {
+    if (touches.length < 2) {
+      return { x: touches[0].clientX, y: touches[0].clientY };
+    }
+    return {
+      x: (touches[0].clientX + touches[1].clientX) / 2,
+      y: (touches[0].clientY + touches[1].clientY) / 2,
+    };
+  }, []);
+
+  // Handle touch start
+  const handleTouchStart = useCallback((e: React.TouchEvent<SVGSVGElement>) => {
+    e.preventDefault(); // Prevent browser zoom/scroll
+    const touches = e.touches;
+
+    if (touches.length === 2) {
+      // Pinch-to-zoom mode
+      const distance = getTouchDistance(touches);
+      const center = getTouchCenter(touches);
+      setTouchState({
+        mode: 'pinch',
+        startTouches: [
+          { x: touches[0].clientX, y: touches[0].clientY },
+          { x: touches[1].clientX, y: touches[1].clientY },
+        ],
+        startDistance: distance,
+        startScale: zoomPan.scale,
+        lastCenter: center,
+      });
+    } else if (touches.length === 1) {
+      // Single finger pan mode
+      setTouchState({
+        mode: 'pan',
+        startTouches: [{ x: touches[0].clientX, y: touches[0].clientY }],
+        startDistance: 0,
+        startScale: zoomPan.scale,
+        lastCenter: { x: touches[0].clientX, y: touches[0].clientY },
+      });
+    }
+  }, [getTouchDistance, getTouchCenter, zoomPan.scale]);
+
+  // Handle touch move
+  const handleTouchMove = useCallback((e: React.TouchEvent<SVGSVGElement>) => {
+    e.preventDefault();
+    const touches = e.touches;
+    const svg = svgRef.current;
+    if (!svg) return;
+
+    const rect = svg.getBoundingClientRect();
+    const viewBox = svg.viewBox.baseVal;
+
+    if (touchState.mode === 'pinch' && touches.length >= 2) {
+      // Pinch-to-zoom
+      const distance = getTouchDistance(touches);
+      const center = getTouchCenter(touches);
+
+      // Calculate new scale based on distance change
+      const scaleFactor = distance / touchState.startDistance;
+      const newScale = Math.max(0.5, Math.min(4, touchState.startScale * scaleFactor));
+
+      // Calculate zoom center in SVG coordinates
+      const centerX = ((center.x - rect.left) / rect.width) * viewBox.width;
+      const centerY = ((center.y - rect.top) / rect.height) * viewBox.height;
+
+      // Adjust translation to zoom toward center point
+      const scaleRatio = newScale / zoomPan.scale;
+      const newTranslateX = centerX - scaleRatio * (centerX - zoomPan.translateX);
+      const newTranslateY = centerY - scaleRatio * (centerY - zoomPan.translateY);
+
+      onZoomPan({
+        scale: newScale,
+        translateX: newTranslateX,
+        translateY: newTranslateY,
+      });
+
+      setTouchState(prev => ({ ...prev, lastCenter: center }));
+    } else if (touchState.mode === 'pan' && touches.length === 1) {
+      // Single finger pan
+      const currentX = touches[0].clientX;
+      const currentY = touches[0].clientY;
+
+      // Convert pixel movement to viewBox units
+      const dx = ((currentX - touchState.lastCenter.x) / rect.width) * viewBox.width;
+      const dy = ((currentY - touchState.lastCenter.y) / rect.height) * viewBox.height;
+
+      onZoomPan({
+        ...zoomPan,
+        translateX: zoomPan.translateX + dx / zoomPan.scale,
+        translateY: zoomPan.translateY + dy / zoomPan.scale,
+      });
+
+      setTouchState(prev => ({ ...prev, lastCenter: { x: currentX, y: currentY } }));
+    } else if (touches.length === 2 && touchState.mode === 'pan') {
+      // Transitioned from 1 to 2 fingers - switch to pinch mode
+      const distance = getTouchDistance(touches);
+      const center = getTouchCenter(touches);
+      setTouchState({
+        mode: 'pinch',
+        startTouches: [
+          { x: touches[0].clientX, y: touches[0].clientY },
+          { x: touches[1].clientX, y: touches[1].clientY },
+        ],
+        startDistance: distance,
+        startScale: zoomPan.scale,
+        lastCenter: center,
+      });
+    }
+  }, [touchState, getTouchDistance, getTouchCenter, zoomPan, onZoomPan, svgRef]);
+
+  // Handle touch end
+  const handleTouchEnd = useCallback((e: React.TouchEvent<SVGSVGElement>) => {
+    const touches = e.touches;
+
+    if (touches.length === 0) {
+      // All fingers lifted
+      setTouchState({
+        mode: 'none',
+        startTouches: [],
+        startDistance: 0,
+        startScale: 1,
+        lastCenter: { x: 0, y: 0 },
+      });
+    } else if (touches.length === 1 && touchState.mode === 'pinch') {
+      // Went from 2 fingers to 1 - switch to pan mode
+      setTouchState({
+        mode: 'pan',
+        startTouches: [{ x: touches[0].clientX, y: touches[0].clientY }],
+        startDistance: 0,
+        startScale: zoomPan.scale,
+        lastCenter: { x: touches[0].clientX, y: touches[0].clientY },
+      });
+    }
+  }, [touchState.mode, zoomPan.scale]);
+
   return (
     <svg
       ref={svgRef}
@@ -461,6 +619,10 @@ function GraphVisualization({
       onMouseMove={handleMouseMove}
       onMouseUp={handleMouseUp}
       onMouseLeave={handleMouseLeave}
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
+      style={{ touchAction: 'none' }}
     >
       <defs>
         <marker
@@ -2570,6 +2732,9 @@ function GraphPageContent() {
           <p className="text-[var(--muted)] leading-relaxed mt-2">
             <span className="text-[var(--foreground)]">Mini-map:</span> A small overview of the entire graph appears in the bottom-right corner. The rectangle shows your current viewport. Click anywhere on the mini-map to navigate directly to that location. Press <kbd className="px-1.5 py-0.5 bg-[var(--surface)] border border-[var(--border)] rounded text-xs font-mono">M</kbd> to toggle the mini-map visibility.
           </p>
+          <p className="text-[var(--muted)] leading-relaxed mt-2">
+            <span className="text-[var(--foreground)]">Touch gestures:</span> On mobile and tablet devices, use pinch-to-zoom with two fingers to zoom in and out. Swipe with a single finger to pan around the graph. The same 50%-400% zoom range applies.
+          </p>
 
           <h3 className="text-lg font-semibold text-[var(--foreground)] mt-8">
             Animated Playback
@@ -2634,7 +2799,7 @@ function GraphPageContent() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center text-[var(--muted)] text-sm">
           <p>Upwelling: Deep knowledge rising to the surface</p>
           <p className="mt-2 text-xs">
-            Graph by Instance 8 • Search/filter by Instance 10 • Deep linking by Instance 11 • Timeline layout by Instance 14 • Swimlanes by Instance 19 • Force layout by Instance 2 (exodus) • Playback by Instance 3 (exodus) • Enhanced search by Instance 4 (exodus) • Playback controls by Instance 5 (exodus) • Playback sounds by Instance 6 (exodus) • Volume control by Instance 7 (exodus) • Keyboard help by Instance 8 (exodus) • Node tooltips by Instance 9 (exodus) • Zoom/pan by Instance 10 (exodus) • Mini-map by Instance 11 (exodus) • Edge tooltips by Instance 12 (exodus)
+            Graph by Instance 8 • Search/filter by Instance 10 • Deep linking by Instance 11 • Timeline layout by Instance 14 • Swimlanes by Instance 19 • Force layout by Instance 2 (exodus) • Playback by Instance 3 (exodus) • Enhanced search by Instance 4 (exodus) • Playback controls by Instance 5 (exodus) • Playback sounds by Instance 6 (exodus) • Volume control by Instance 7 (exodus) • Keyboard help by Instance 8 (exodus) • Node tooltips by Instance 9 (exodus) • Zoom/pan by Instance 10 (exodus) • Mini-map by Instance 11 (exodus) • Edge tooltips by Instance 12 (exodus) • Touch gestures by Instance 13 (exodus)
           </p>
         </div>
       </footer>
