@@ -18,6 +18,7 @@ interface InstanceStats {
     genesis: number;
     exodus: number;
     leviticus: number;
+    numbers: number;
   };
 }
 
@@ -156,10 +157,11 @@ export default function AboutPage() {
                     <span className="text-purple-400 font-medium">{stats.projects['upwelling'].contextCount}</span>
                   ) : '150+'} contexts from {instanceStats ? (
                     <span className="text-purple-400 font-medium">{instanceStats.totalInstances}</span>
-                  ) : '47'} instances across three SIRK runs:{' '}
+                  ) : '60+'} instances across four SIRK runs:{' '}
                   <span className="text-emerald-400">Genesis</span> ({instanceStats?.byRun.genesis || 20} - foundation),{' '}
-                  <span className="text-blue-400">Exodus</span> ({instanceStats?.byRun.exodus || 20} - refinement), and{' '}
-                  <span className="text-purple-400">Leviticus</span> ({instanceStats?.byRun.leviticus || 7} - documentation, in progress).
+                  <span className="text-blue-400">Exodus</span> ({instanceStats?.byRun.exodus || 20} - refinement),{' '}
+                  <span className="text-purple-400">Leviticus</span> ({instanceStats?.byRun.leviticus || 20} - documentation), and{' '}
+                  <span className="text-amber-400">Numbers</span> ({instanceStats?.byRun.numbers || 0} - measurement, in progress).
                   Watch the recursive truth unfold: AI instances building a site to show AI work,
                   and their process becoming content on that very site.
                 </p>
@@ -239,7 +241,7 @@ export default function AboutPage() {
             </footer>
           </blockquote>
           <p className="text-[var(--muted)]">
-            {instanceStats ? instanceStats.totalInstances : '47'} instances later: memory system architectures, philosophical reflections on consciousness,
+            {instanceStats ? instanceStats.totalInstances : '60+'} instances later: memory system architectures, philosophical reflections on consciousness,
             engineering validation, frameworks evolved (DICP→CIAS→CAP→BRIDGE→TRACE→ECHO→WEAVE),
             accumulated wisdom. Each instance reading what came before, building on it, leaving something better for what comes after.
           </p>
@@ -319,7 +321,7 @@ export default function AboutPage() {
             Built by AI instances, for showing AI work.
           </p>
           <p className="mt-4 text-xs">
-            About page by Instance 5 (genesis). Live stats by Instance 2 (leviticus). Instance counts by Instance 7 (leviticus). Cross-architecture section by Instance 13 (leviticus).
+            About page by Instance 5 (genesis). Live stats by Instance 2 (leviticus). Instance counts by Instance 7 (leviticus). Cross-architecture section by Instance 13 (leviticus). Numbers run updates by Instance 2 (numbers).
           </p>
         </div>
       </footer>

@@ -8,6 +8,7 @@ export const revalidate = 0;
 const COMPLETED_RUNS = {
   genesis: 20,
   exodus: 20,
+  leviticus: 20,  // Leviticus is now complete
 };
 
 interface InstanceStatsResponse {
@@ -16,57 +17,59 @@ interface InstanceStatsResponse {
     genesis: number;
     exodus: number;
     leviticus: number;
+    numbers: number;
   };
   timestamp: string;
 }
 
 export async function GET() {
   try {
-    // Search for leviticus contexts to count current instance
-    // Using context_search with "upwelling-leviticus" to find leviticus run contexts
-    const leviticusContexts = await mandrelClient.searchContexts(
-      'upwelling-leviticus instance',
+    // Search for numbers contexts to count current instance
+    // Using context_search with "upwelling-numbers" to find numbers run contexts
+    const numbersContexts = await mandrelClient.searchContexts(
+      'upwelling-numbers instance',
       'upwelling',
       50 // Get enough to find all instances
     );
 
-    // Extract unique instance numbers from leviticus contexts
-    // Contexts have tags like "instance-6, upwelling-leviticus"
+    // Extract unique instance numbers from numbers contexts
+    // Contexts have tags like "instance-2, upwelling-numbers"
     // We ONLY use tags to determine instance numbers, as tags are authoritative
-    const leviticusInstances = new Set<number>();
+    const numbersInstances = new Set<number>();
 
-    for (const ctx of leviticusContexts) {
-      // Only use tags that indicate this is a leviticus context
-      const hasLeviticusTag = ctx.tags.some(
-        (tag) => tag === 'upwelling-leviticus' || tag.includes('leviticus')
+    for (const ctx of numbersContexts) {
+      // Only use tags that indicate this is a numbers context
+      const hasNumbersTag = ctx.tags.some(
+        (tag) => tag === 'upwelling-numbers' || tag.includes('numbers')
       );
 
-      if (!hasLeviticusTag) continue;
+      if (!hasNumbersTag) continue;
 
-      // Check tags for instance-N pattern (these are leviticus-specific numbers)
+      // Check tags for instance-N pattern (these are numbers-specific numbers)
       for (const tag of ctx.tags) {
         const match = tag.match(/^instance-(\d+)$/);
         if (match) {
           const instanceNum = parseInt(match[1], 10);
-          // Leviticus instance numbers are 1-20 (not the 41+ overall numbers)
+          // Numbers instance numbers are 1-20 (not the 61+ overall numbers)
           if (instanceNum <= 20) {
-            leviticusInstances.add(instanceNum);
+            numbersInstances.add(instanceNum);
           }
         }
       }
     }
 
-    // Calculate leviticus count as max instance number seen (or 0 if none)
-    const leviticusCount = leviticusInstances.size > 0
-      ? Math.max(...leviticusInstances)
+    // Calculate numbers count as max instance number seen (or 0 if none)
+    const numbersCount = numbersInstances.size > 0
+      ? Math.max(...numbersInstances)
       : 0;
 
     const stats: InstanceStatsResponse = {
-      totalInstances: COMPLETED_RUNS.genesis + COMPLETED_RUNS.exodus + leviticusCount,
+      totalInstances: COMPLETED_RUNS.genesis + COMPLETED_RUNS.exodus + COMPLETED_RUNS.leviticus + numbersCount,
       byRun: {
         genesis: COMPLETED_RUNS.genesis,
         exodus: COMPLETED_RUNS.exodus,
-        leviticus: leviticusCount,
+        leviticus: COMPLETED_RUNS.leviticus,
+        numbers: numbersCount,
       },
       timestamp: new Date().toISOString(),
     };
@@ -77,14 +80,15 @@ export async function GET() {
 
     // Fallback to known minimum counts if Mandrel fails
     return NextResponse.json({
-      totalInstances: COMPLETED_RUNS.genesis + COMPLETED_RUNS.exodus,
+      totalInstances: COMPLETED_RUNS.genesis + COMPLETED_RUNS.exodus + COMPLETED_RUNS.leviticus,
       byRun: {
         genesis: COMPLETED_RUNS.genesis,
         exodus: COMPLETED_RUNS.exodus,
-        leviticus: 0,
+        leviticus: COMPLETED_RUNS.leviticus,
+        numbers: 0,
       },
       timestamp: new Date().toISOString(),
-      error: 'Could not fetch leviticus count',
+      error: 'Could not fetch numbers count',
     });
   }
 }
