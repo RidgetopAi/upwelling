@@ -74,6 +74,9 @@ export function UpwellingApp() {
     filters,
     toggleTypeFilter,
     clearFilters,
+    setSearchQuery,
+    setSearchResults,
+    setIsSearching,
   } = useUpwellingStore();
 
   // Read initial state from URL on mount
@@ -86,6 +89,12 @@ export function UpwellingApp() {
     const urlType = searchParams.get('type') as ContextType | null;
     const urlContext = searchParams.get('context');
     const urlView = searchParams.get('view') as 'timeline' | 'grid' | null;
+    const urlSearch = searchParams.get('search');
+
+    // Determine project (needed for search)
+    const effectiveProject = (urlProject && VALID_PROJECTS.includes(urlProject))
+      ? urlProject
+      : 'emergence-notes';
 
     // Initialize project
     if (urlProject && VALID_PROJECTS.includes(urlProject)) {
@@ -108,7 +117,28 @@ export function UpwellingApp() {
     if (urlContext) {
       selectContext(urlContext);
     }
-  }, [searchParams, setProject, setView, toggleTypeFilter, clearFilters, selectContext]);
+
+    // Initialize search from URL
+    if (urlSearch && urlSearch.trim()) {
+      const query = urlSearch.trim();
+      setSearchQuery(query);
+      setIsSearching(true);
+
+      // Perform the search
+      fetch(`/api/contexts/search?q=${encodeURIComponent(query)}&project=${effectiveProject}&limit=20`)
+        .then(res => res.json())
+        .then(data => {
+          setSearchResults(data.contexts || []);
+        })
+        .catch(err => {
+          console.error('Search failed:', err);
+          setSearchResults([]);
+        })
+        .finally(() => {
+          setIsSearching(false);
+        });
+    }
+  }, [searchParams, setProject, setView, toggleTypeFilter, clearFilters, selectContext, setSearchQuery, setSearchResults, setIsSearching]);
 
   // Function to update URL without causing re-render
   const updateUrl = useCallback((updates: {

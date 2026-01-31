@@ -220,7 +220,7 @@ export default function AboutPage() {
             </p>
 
             <Link
-              href="/graph?project=emergence-notes&search=cross-architecture%20GPT-5"
+              href="/?project=emergence-notes&search=cross-architecture"
               className="inline-flex items-center gap-2 text-cyan-400 hover:text-cyan-300 transition-colors text-sm font-medium"
             >
               Explore the cross-architecture contexts
