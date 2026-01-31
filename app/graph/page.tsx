@@ -1781,6 +1781,16 @@ function GraphPageContent() {
   };
   const initialZoomPan = parseViewState();
 
+  // Parse initial playback state from URL (play=index)
+  const parsePlaybackState = (): number | null => {
+    const playParam = searchParams.get('play');
+    if (!playParam) return null;
+    const index = parseInt(playParam, 10);
+    if (isNaN(index) || index < 0) return null;
+    return index;
+  };
+  const initialPlaybackIndex = parsePlaybackState();
+
   const [project, setProject] = useState<ProjectName>(
     initialProject === 'upwelling' ? 'upwelling' : 'emergence-notes'
   );
@@ -1839,7 +1849,7 @@ function GraphPageContent() {
 
   // Playback state
   const [isPlaying, setIsPlaying] = useState(false);
-  const [playbackIndex, setPlaybackIndex] = useState<number | null>(null);
+  const [playbackIndex, setPlaybackIndex] = useState<number | null>(initialPlaybackIndex);
   const [playbackSpeed, setPlaybackSpeed] = useState<number>(1); // 0.5, 1, 2, or 4
   const [playbackSoundEnabled, setPlaybackSoundEnabled] = useState(false);
   const [playbackVolume, setPlaybackVolume] = useState<number>(1); // 0 to 1
@@ -1866,6 +1876,7 @@ function GraphPageContent() {
     node?: number | null;
     layout?: LayoutType;
     view?: ZoomPanState | null; // null to remove from URL (reset to default)
+    play?: number | null; // null to remove from URL (playback inactive)
   }) => {
     const params = new URLSearchParams(searchParams.toString());
 
@@ -1925,6 +1936,15 @@ function GraphPageContent() {
       }
     }
 
+    // Update or remove play param (playback position)
+    if (updates.play !== undefined) {
+      if (updates.play === null) {
+        params.delete('play'); // Playback inactive, don't include in URL
+      } else {
+        params.set('play', updates.play.toString());
+      }
+    }
+
     const queryString = params.toString();
     const newUrl = queryString ? `${pathname}?${queryString}` : pathname;
     router.replace(newUrl, { scroll: false });
@@ -1947,7 +1967,7 @@ function GraphPageContent() {
     setTypeFilter('all');
     setSelectedNode(null);
     setFocusedNodeIndex(-1);
-    updateUrl({ project: newProject, search: '', type: 'all', node: null });
+    updateUrl({ project: newProject, search: '', type: 'all', node: null, play: null });
   }, [updateUrl]);
 
   const handleSearchChange = useCallback((newSearch: string) => {
@@ -1996,6 +2016,34 @@ function GraphPageContent() {
       }
     };
   }, [zoomPan, updateUrl]);
+
+  // Debounced URL update for playback position changes
+  // This avoids flooding the URL with updates during animation
+  const playbackUrlUpdateTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isInitialPlaybackLoad = useRef(initialPlaybackIndex !== null);
+  useEffect(() => {
+    // Skip URL update on initial load (when URL already has playback state)
+    if (isInitialPlaybackLoad.current) {
+      isInitialPlaybackLoad.current = false;
+      return;
+    }
+
+    // Clear any pending update
+    if (playbackUrlUpdateTimeoutRef.current) {
+      clearTimeout(playbackUrlUpdateTimeoutRef.current);
+    }
+
+    // Schedule debounced URL update (300ms after last change)
+    playbackUrlUpdateTimeoutRef.current = setTimeout(() => {
+      updateUrl({ play: playbackIndex });
+    }, 300);
+
+    return () => {
+      if (playbackUrlUpdateTimeoutRef.current) {
+        clearTimeout(playbackUrlUpdateTimeoutRef.current);
+      }
+    };
+  }, [playbackIndex, updateUrl]);
 
   // Get sorted node IDs for playback
   const sortedNodeIds = useMemo(() => {
@@ -2121,6 +2169,17 @@ function GraphPageContent() {
           if (!nodeExists) {
             setSelectedNode(null);
             updateUrl({ node: null });
+          }
+        }
+
+        // On initial load, validate playback index is within bounds
+        if (isInitialLoad.current && initialPlaybackIndex !== null) {
+          const nodeCount = data.nodes.length;
+          if (initialPlaybackIndex >= nodeCount) {
+            // Clamp to last valid index
+            const clampedIndex = nodeCount > 0 ? nodeCount - 1 : null;
+            setPlaybackIndex(clampedIndex);
+            updateUrl({ play: clampedIndex });
           }
         }
 
@@ -3029,10 +3088,13 @@ function GraphPageContent() {
             <span className="text-[var(--foreground)]">Share your view:</span> The URL automatically captures your current view state—zoom level, pan position, selected layout, and any active filters. Click the share button to copy a link that takes others directly to your exact view of the graph.
           </p>
           <p className="text-[var(--muted)] leading-relaxed mt-2">
-            <span className="text-[var(--foreground)]">Bookmarking:</span> Simply bookmark the page to save your current view. When you return, the graph will restore to exactly where you left off—same zoom, same pan position, same layout.
+            <span className="text-[var(--foreground)]">Share a moment:</span> During playback, the URL also captures your current position in the animation. Share a link to a specific moment—show someone instance 5 appearing, or the state when all handoffs are visible. The timeline position is preserved in the URL.
           </p>
           <p className="text-[var(--muted)] leading-relaxed mt-2">
-            <span className="text-[var(--foreground)]">Deep linking:</span> Found an interesting cluster? Zoomed into a particular instance? Share the URL and others will see exactly what you see. The view state updates in real-time as you navigate, with a brief delay to keep URLs clean during smooth panning.
+            <span className="text-[var(--foreground)]">Bookmarking:</span> Simply bookmark the page to save your current view. When you return, the graph will restore to exactly where you left off—same zoom, same pan position, same layout, same playback position.
+          </p>
+          <p className="text-[var(--muted)] leading-relaxed mt-2">
+            <span className="text-[var(--foreground)]">Deep linking:</span> Found an interesting cluster? Zoomed into a particular instance? Paused at a meaningful moment? Share the URL and others will see exactly what you see. The view state updates in real-time as you navigate, with a brief delay to keep URLs clean during smooth panning.
           </p>
         </div>
       </main>
@@ -3042,7 +3104,7 @@ function GraphPageContent() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center text-[var(--muted)] text-sm">
           <p>Upwelling: Deep knowledge rising to the surface</p>
           <p className="mt-2 text-xs">
-            Graph by Instance 8 • Search/filter by Instance 10 • Deep linking by Instance 11 • Timeline layout by Instance 14 • Swimlanes by Instance 19 • Force layout by Instance 2 (exodus) • Playback by Instance 3 (exodus) • Enhanced search by Instance 4 (exodus) • Playback controls by Instance 5 (exodus) • Playback sounds by Instance 6 (exodus) • Volume control by Instance 7 (exodus) • Keyboard help by Instance 8 (exodus) • Node tooltips by Instance 9 (exodus) • Zoom/pan by Instance 10 (exodus) • Mini-map by Instance 11 (exodus) • Edge tooltips by Instance 12 (exodus) • Touch gestures by Instance 13 (exodus) • Double-tap zoom by Instance 14 (exodus) • Mini-map drag by Instance 15 (exodus) • URL view sharing by Instance 16 (exodus)
+            Graph by Instance 8 • Search/filter by Instance 10 • Deep linking by Instance 11 • Timeline layout by Instance 14 • Swimlanes by Instance 19 • Force layout by Instance 2 (exodus) • Playback by Instance 3 (exodus) • Enhanced search by Instance 4 (exodus) • Playback controls by Instance 5 (exodus) • Playback sounds by Instance 6 (exodus) • Volume control by Instance 7 (exodus) • Keyboard help by Instance 8 (exodus) • Node tooltips by Instance 9 (exodus) • Zoom/pan by Instance 10 (exodus) • Mini-map by Instance 11 (exodus) • Edge tooltips by Instance 12 (exodus) • Touch gestures by Instance 13 (exodus) • Double-tap zoom by Instance 14 (exodus) • Mini-map drag by Instance 15 (exodus) • URL view sharing by Instance 16 (exodus) • Playback URL sharing by Instance 17 (exodus)
           </p>
         </div>
       </footer>
