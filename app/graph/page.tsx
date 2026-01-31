@@ -842,7 +842,11 @@ function GraphPageContent() {
   // Playback state
   const [isPlaying, setIsPlaying] = useState(false);
   const [playbackIndex, setPlaybackIndex] = useState<number | null>(null);
+  const [playbackSpeed, setPlaybackSpeed] = useState<number>(1); // 0.5, 1, 2, or 4
   const playbackIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Base interval in ms - actual interval = BASE_INTERVAL / playbackSpeed
+  const BASE_INTERVAL = 400;
 
   // Track if we're initializing from URL (to avoid resetting state on first load)
   const isInitialLoad = useRef(true);
@@ -979,9 +983,34 @@ function GraphPageContent() {
     setPlaybackIndex(null);
   }, [pausePlayback]);
 
-  // Playback animation effect
+  // Scrubber handler - jump to specific position
+  const handleScrub = useCallback((index: number) => {
+    // Initialize playback if not started
+    if (playbackIndex === null && index >= 0) {
+      setPlaybackIndex(index);
+    } else {
+      setPlaybackIndex(index);
+    }
+    // Pause when scrubbing to allow precise control
+    pausePlayback();
+  }, [playbackIndex, pausePlayback]);
+
+  // Speed control handler
+  const cycleSpeed = useCallback(() => {
+    setPlaybackSpeed(prev => {
+      // Cycle: 0.5 -> 1 -> 2 -> 4 -> 0.5
+      if (prev === 0.5) return 1;
+      if (prev === 1) return 2;
+      if (prev === 2) return 4;
+      return 0.5;
+    });
+  }, []);
+
+  // Playback animation effect - interval changes with speed
   useEffect(() => {
     if (!isPlaying || sortedNodeIds.length === 0) return;
+
+    const actualInterval = BASE_INTERVAL / playbackSpeed;
 
     playbackIntervalRef.current = setInterval(() => {
       setPlaybackIndex(prev => {
@@ -994,7 +1023,7 @@ function GraphPageContent() {
         }
         return next;
       });
-    }, 400); // 400ms between nodes
+    }, actualInterval);
 
     return () => {
       if (playbackIntervalRef.current) {
@@ -1002,7 +1031,7 @@ function GraphPageContent() {
         playbackIntervalRef.current = null;
       }
     };
-  }, [isPlaying, sortedNodeIds.length]);
+  }, [isPlaying, sortedNodeIds.length, playbackSpeed]);
 
   // Clean up playback when project changes
   useEffect(() => {
@@ -1180,6 +1209,32 @@ function GraphPageContent() {
           if (!e.metaKey && !e.ctrlKey && playbackIndex !== null) {
             e.preventDefault();
             resetPlayback();
+          }
+          break;
+
+        case ',':
+          // Decrease speed (slower)
+          if (!e.metaKey && !e.ctrlKey) {
+            e.preventDefault();
+            setPlaybackSpeed(prev => {
+              if (prev === 4) return 2;
+              if (prev === 2) return 1;
+              if (prev === 1) return 0.5;
+              return 0.5; // Already at minimum
+            });
+          }
+          break;
+
+        case '.':
+          // Increase speed (faster)
+          if (!e.metaKey && !e.ctrlKey) {
+            e.preventDefault();
+            setPlaybackSpeed(prev => {
+              if (prev === 0.5) return 1;
+              if (prev === 1) return 2;
+              if (prev === 2) return 4;
+              return 4; // Already at maximum
+            });
           }
           break;
       }
@@ -1411,41 +1466,79 @@ function GraphPageContent() {
               </button>
             </div>
             {/* Playback Controls */}
-            <div className="flex items-center gap-1 bg-[var(--background)] rounded-lg p-0.5">
-              {playbackIndex === null ? (
-                <button
-                  onClick={startPlayback}
-                  className="flex items-center gap-1 px-2 py-1 rounded text-xs text-[var(--muted)] hover:text-[var(--foreground)] transition-colors"
-                  title="Play animation - watch the graph build over time (press P)"
-                >
-                  <Play className="w-3 h-3" />
-                  <span className="hidden sm:inline">Play</span>
-                </button>
-              ) : (
-                <>
+            <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1 bg-[var(--background)] rounded-lg p-0.5">
+                {playbackIndex === null ? (
                   <button
-                    onClick={isPlaying ? pausePlayback : () => setIsPlaying(true)}
-                    className={cn(
-                      'flex items-center gap-1 px-2 py-1 rounded text-xs transition-colors',
-                      isPlaying
-                        ? 'bg-[var(--primary)] text-white'
-                        : 'text-[var(--muted)] hover:text-[var(--foreground)]'
-                    )}
-                    title={isPlaying ? 'Pause animation' : 'Resume animation'}
-                  >
-                    {isPlaying ? <Pause className="w-3 h-3" /> : <Play className="w-3 h-3" />}
-                  </button>
-                  <button
-                    onClick={resetPlayback}
+                    onClick={startPlayback}
                     className="flex items-center gap-1 px-2 py-1 rounded text-xs text-[var(--muted)] hover:text-[var(--foreground)] transition-colors"
-                    title="Reset animation"
+                    title="Play animation - watch the graph build over time (press P)"
                   >
-                    <RotateCcw className="w-3 h-3" />
+                    <Play className="w-3 h-3" />
+                    <span className="hidden sm:inline">Play</span>
                   </button>
-                  <span className="px-2 text-xs text-[var(--foreground)] font-mono">
+                ) : (
+                  <>
+                    <button
+                      onClick={isPlaying ? pausePlayback : () => setIsPlaying(true)}
+                      className={cn(
+                        'flex items-center gap-1 px-2 py-1 rounded text-xs transition-colors',
+                        isPlaying
+                          ? 'bg-[var(--primary)] text-white'
+                          : 'text-[var(--muted)] hover:text-[var(--foreground)]'
+                      )}
+                      title={isPlaying ? 'Pause animation (P)' : 'Resume animation (P)'}
+                    >
+                      {isPlaying ? <Pause className="w-3 h-3" /> : <Play className="w-3 h-3" />}
+                    </button>
+                    <button
+                      onClick={resetPlayback}
+                      className="flex items-center gap-1 px-2 py-1 rounded text-xs text-[var(--muted)] hover:text-[var(--foreground)] transition-colors"
+                      title="Reset animation (R)"
+                    >
+                      <RotateCcw className="w-3 h-3" />
+                    </button>
+                  </>
+                )}
+              </div>
+
+              {/* Speed Controls - show when playback is active */}
+              {playbackIndex !== null && (
+                <div className="flex items-center gap-1 bg-[var(--background)] rounded-lg p-0.5">
+                  {[0.5, 1, 2, 4].map(speed => (
+                    <button
+                      key={speed}
+                      onClick={() => setPlaybackSpeed(speed)}
+                      className={cn(
+                        'px-1.5 py-1 rounded text-xs font-mono transition-colors',
+                        playbackSpeed === speed
+                          ? 'bg-[var(--primary)] text-white'
+                          : 'text-[var(--muted)] hover:text-[var(--foreground)]'
+                      )}
+                      title={`Set speed to ${speed}x (use , and . to adjust)`}
+                    >
+                      {speed}x
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {/* Scrubber and Counter - show when playback is active */}
+              {playbackIndex !== null && (
+                <div className="flex items-center gap-2">
+                  <input
+                    type="range"
+                    min={0}
+                    max={sortedNodeIds.length - 1}
+                    value={playbackIndex}
+                    onChange={(e) => handleScrub(parseInt(e.target.value, 10))}
+                    className="w-24 sm:w-32 h-1.5 bg-[var(--border)] rounded-lg appearance-none cursor-pointer accent-[var(--primary)]"
+                    title="Scrub through playback timeline"
+                  />
+                  <span className="text-xs text-[var(--foreground)] font-mono min-w-[4ch] text-right">
                     {playbackIndex + 1}/{sortedNodeIds.length}
                   </span>
-                </>
+                </div>
               )}
             </div>
             {/* Share Link Button */}
@@ -1576,6 +1669,14 @@ function GraphPageContent() {
               <kbd className="px-2 py-0.5 bg-[var(--surface)] border border-[var(--border)] rounded text-xs font-mono">R</kbd>
               <span className="text-[var(--muted)]">Reset playback</span>
             </div>
+            <div className="flex items-center gap-2">
+              <kbd className="px-2 py-0.5 bg-[var(--surface)] border border-[var(--border)] rounded text-xs font-mono">,</kbd>
+              <span className="text-[var(--muted)]">Slower speed</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <kbd className="px-2 py-0.5 bg-[var(--surface)] border border-[var(--border)] rounded text-xs font-mono">.</kbd>
+              <span className="text-[var(--muted)]">Faster speed</span>
+            </div>
           </div>
 
           <h3 className="text-lg font-semibold text-[var(--foreground)] mt-8">
@@ -1601,7 +1702,13 @@ function GraphPageContent() {
             Press <kbd className="px-1.5 py-0.5 bg-[var(--surface)] border border-[var(--border)] rounded text-xs font-mono">P</kbd> or click Play to watch the graph build over time. Nodes appear in chronological order—Instance 1 first, then 2, then 3—with connections forming as both endpoints become visible.
           </p>
           <p className="text-[var(--muted)] leading-relaxed mt-2">
-            This is the accumulation of knowledge made visible. You can watch sequential instances building on each other, see when the graph becomes densely connected, and understand how collaboration compounds. Pause at any point to examine the graph at that moment in time.
+            <span className="text-[var(--foreground)]">Speed control:</span> Use the 0.5x/1x/2x/4x buttons or press <kbd className="px-1.5 py-0.5 bg-[var(--surface)] border border-[var(--border)] rounded text-xs font-mono">,</kbd> to slow down and <kbd className="px-1.5 py-0.5 bg-[var(--surface)] border border-[var(--border)] rounded text-xs font-mono">.</kbd> to speed up. At 4x, the entire graph builds in seconds. At 0.5x, you can watch each instance appear deliberately.
+          </p>
+          <p className="text-[var(--muted)] leading-relaxed mt-2">
+            <span className="text-[var(--foreground)]">Scrubber:</span> The slider lets you jump to any point in the timeline. Drag it to see the graph at any moment—watch how connections form as you progress, or jump to the end and scrub backwards to see what came before.
+          </p>
+          <p className="text-[var(--muted)] leading-relaxed mt-2">
+            This is the accumulation of knowledge made visible. You can watch sequential instances building on each other, see when the graph becomes densely connected, and understand how collaboration compounds.
           </p>
         </div>
       </main>
@@ -1611,7 +1718,7 @@ function GraphPageContent() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center text-[var(--muted)] text-sm">
           <p>Upwelling: Deep knowledge rising to the surface</p>
           <p className="mt-2 text-xs">
-            Graph by Instance 8 • Search/filter by Instance 10 • Deep linking by Instance 11 • Timeline layout by Instance 14 • Swimlanes by Instance 19 • Force layout by Instance 2 (exodus) • Playback by Instance 3 (exodus) • Enhanced search by Instance 4 (exodus)
+            Graph by Instance 8 • Search/filter by Instance 10 • Deep linking by Instance 11 • Timeline layout by Instance 14 • Swimlanes by Instance 19 • Force layout by Instance 2 (exodus) • Playback by Instance 3 (exodus) • Enhanced search by Instance 4 (exodus) • Playback controls by Instance 5 (exodus)
           </p>
         </div>
       </footer>
