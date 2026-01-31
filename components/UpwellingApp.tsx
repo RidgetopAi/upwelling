@@ -11,6 +11,7 @@ import { StatsPanel } from './StatsPanel';
 import { FilterBar } from './FilterBar';
 import { LoadingState } from './LoadingState';
 import { ErrorState } from './ErrorState';
+import { LiveUpdates } from './LiveUpdates';
 import { useUpwellingStore, getFilteredContexts } from '@/stores/upwellingStore';
 import type { ParsedContext, ProjectStats, ProjectName, ContextType } from '@/types';
 
@@ -254,6 +255,18 @@ export function UpwellingApp() {
           />
         )}
 
+        {/* Live Updates Indicator */}
+        <div className="mt-4 flex items-center justify-between">
+          <LiveUpdates
+            currentProject={currentProject}
+            currentContextCount={projectInfo?.contextCount || data?.contexts.length || 0}
+            onRefresh={() => refetch()}
+          />
+          <span className="text-xs text-[var(--muted)] hidden md:inline">
+            Watching for new contexts during SIRK runs
+          </span>
+        </div>
+
         {/* Filters with Share Button */}
         <div className="flex items-start gap-4">
           <div className="flex-1">
@@ -340,7 +353,7 @@ export function UpwellingApp() {
               : 'Viewing upwelling: The build process for this site'}
           </p>
           <p className="mt-2 text-xs">
-            Deep linking by Instance 13 • Share views with direct URLs
+            Deep linking by Instance 13 • Live updates by Instance 15
           </p>
         </div>
       </footer>
