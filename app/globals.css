@@ -1,0 +1,118 @@
+@import 'tailwindcss';
+
+:root {
+  --background: #0a0a0a;
+  --foreground: #ededed;
+  --primary: #3b82f6;
+  --primary-hover: #2563eb;
+  --secondary: #6b7280;
+  --accent: #10b981;
+  --surface: #171717;
+  --surface-hover: #262626;
+  --border: #262626;
+  --muted: #a3a3a3;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--surface);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--secondary);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--muted);
+}
+
+/* Code blocks */
+pre, code {
+  font-family: 'Fira Code', 'Monaco', 'Consolas', monospace;
+}
+
+/* Context type colors */
+.context-handoff {
+  border-left-color: #f59e0b;
+}
+
+.context-reflections {
+  border-left-color: #8b5cf6;
+}
+
+.context-planning {
+  border-left-color: #3b82f6;
+}
+
+.context-decision {
+  border-left-color: #10b981;
+}
+
+.context-completion {
+  border-left-color: #22c55e;
+}
+
+.context-milestone {
+  border-left-color: #ec4899;
+}
+
+.context-discussion {
+  border-left-color: #6366f1;
+}
+
+.context-code {
+  border-left-color: #06b6d4;
+}
+
+.context-error {
+  border-left-color: #ef4444;
+}
+
+/* Framework badges */
+.framework-badge {
+  @apply inline-flex items-center px-2 py-0.5 rounded text-xs font-medium;
+}
+
+.framework-DICP { background: #fee2e2; color: #991b1b; }
+.framework-CIAS { background: #fef3c7; color: #92400e; }
+.framework-CAP { background: #d1fae5; color: #065f46; }
+.framework-BRIDGE { background: #dbeafe; color: #1e40af; }
+.framework-TRACE { background: #e0e7ff; color: #3730a3; }
+.framework-ECHO { background: #fae8ff; color: #86198f; }
+.framework-WEAVE { background: #f3e8ff; color: #6b21a8; }
+
+/* Animation */
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fade-in {
+  animation: fade-in 0.3s ease-out;
+}
+
+@keyframes pulse-subtle {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+
+.animate-pulse-subtle {
+  animation: pulse-subtle 2s ease-in-out infinite;
+}

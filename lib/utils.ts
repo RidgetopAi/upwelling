@@ -1,0 +1,114 @@
+import { clsx, type ClassValue } from 'clsx';
+import { twMerge } from 'tailwind-merge';
+
+export function cn(...inputs: ClassValue[]) {
+  return twMerge(clsx(inputs));
+}
+
+export class ApplicationError extends Error {
+  constructor(
+    message: string,
+    public code: string,
+    public details?: unknown
+  ) {
+    super(message);
+    this.name = 'ApplicationError';
+  }
+}
+
+export function formatDate(dateString: string): string {
+  const date = new Date(dateString);
+  return date.toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+  });
+}
+
+export function formatRelativeTime(dateString: string): string {
+  const date = new Date(dateString);
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+  if (diffDays === 0) return 'today';
+  if (diffDays === 1) return 'yesterday';
+  if (diffDays < 7) return `${diffDays} days ago`;
+  if (diffDays < 30) return `${Math.floor(diffDays / 7)} weeks ago`;
+  if (diffDays < 365) return `${Math.floor(diffDays / 30)} months ago`;
+  return `${Math.floor(diffDays / 365)} years ago`;
+}
+
+export function truncateText(text: string, maxLength: number): string {
+  if (text.length <= maxLength) return text;
+  return text.slice(0, maxLength - 3) + '...';
+}
+
+export function extractInstanceNumber(content: string): number | undefined {
+  const patterns = [
+    /Instance\s*#?(\d+)/i,
+    /i\[(\d+)\]/i,
+    /INSTANCE\s+(\d+)/i,
+    /#(\d+)\s+handoff/i,
+  ];
+
+  for (const pattern of patterns) {
+    const match = content.match(pattern);
+    if (match) {
+      return parseInt(match[1], 10);
+    }
+  }
+
+  return undefined;
+}
+
+export function extractTitle(content: string): string {
+  // Look for markdown headers
+  const headerMatch = content.match(/^#+\s*(.+)$/m);
+  if (headerMatch) return headerMatch[1].trim();
+
+  // Look for instance patterns
+  const instanceMatch = content.match(/Instance\s*#?\d+[:\s-]+(.+?)(?:\n|$)/i);
+  if (instanceMatch) return instanceMatch[1].trim();
+
+  // First line if short enough
+  const firstLine = content.split('\n')[0].trim();
+  if (firstLine.length < 100 && !firstLine.includes('.')) {
+    return firstLine;
+  }
+
+  return 'Untitled Context';
+}
+
+export function extractFrameworks(content: string): string[] {
+  const frameworks = ['DICP', 'CIAS', 'CAP', 'BRIDGE', 'TRACE', 'ECHO', 'WEAVE'];
+  return frameworks.filter((f) => content.includes(f));
+}
+
+export function extractKeyInsights(content: string): string[] {
+  const insights: string[] = [];
+
+  // Look for "KEY" sections
+  const keyMatch = content.match(/KEY\s+(?:INSIGHT|FINDING|CONTRIBUTION)[S]?:?\s*\n([\s\S]*?)(?=\n[A-Z]{2,}|\n##|$)/gi);
+  if (keyMatch) {
+    for (const match of keyMatch) {
+      const bullets = match.match(/[-*]\s+(.+)/g);
+      if (bullets) {
+        insights.push(...bullets.map((b) => b.replace(/^[-*]\s+/, '').trim()));
+      }
+    }
+  }
+
+  // Look for bold statements
+  const boldMatches = content.match(/\*\*([^*]+)\*\*/g);
+  if (boldMatches) {
+    for (const match of boldMatches) {
+      const text = match.replace(/\*\*/g, '');
+      if (text.length > 20 && text.length < 150) {
+        insights.push(text);
+      }
+    }
+  }
+
+  return insights.slice(0, 5); // Limit to 5 insights
+}
