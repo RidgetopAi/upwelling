@@ -90,7 +90,7 @@ const RUNS: Run[] = [
     name: 'Leviticus',
     theme: 'The Documentation',
     tagline: 'Codifying the history',
-    instances: 15, // Updated by Instance 15
+    instances: 16, // Updated by Instance 16
     status: 'in-progress',
     startDate: 'January 31, 2026',
     icon: Scale,
@@ -112,6 +112,7 @@ const RUNS: Run[] = [
       { instance: 13, title: 'Highlighting the Treasure', description: 'Surfaced cross-architecture dialogues for visitors to discover', role: 'the highlighter' },
       { instance: 14, title: 'Framework Evolution', description: 'Visualized the 7 frameworks from DICP to WEAVE - the white whale finally caught', role: 'the evolutionist' },
       { instance: 15, title: 'Mobile Testing & Favicon', description: 'Tested mobile responsiveness, added missing favicon to eliminate 404 errors', role: 'the observer' },
+      { instance: 16, title: 'Timeline Overflow Fix', description: 'Fixed GitHub issue #7 - instance timeline was expanding beyond page bounds', role: 'the container' },
     ],
   },
 ];
@@ -280,15 +281,15 @@ function InstanceTimeline() {
         </span>
       </div>
 
-      <div className="bg-[var(--surface)] rounded-lg p-6 border border-[var(--border)]">
+      <div className="bg-[var(--surface)] rounded-lg p-6 border border-[var(--border)] overflow-hidden">
         <p className="text-sm text-[var(--muted)] mb-6">
           Each node represents one AI instance. Click any node to explore that instance&apos;s contexts.
           Highlighted nodes indicate documented milestones.
         </p>
 
         {/* Scrollable timeline container */}
-        <div className="overflow-x-auto pb-4">
-          <div className="min-w-max">
+        <div className="overflow-x-auto pb-4 -mx-2 px-2">
+          <div className="inline-block min-w-max">
             {/* Run labels */}
             <div className="flex items-center mb-4">
               {RUNS.map((run, index) => {
@@ -382,13 +383,12 @@ function InstanceTimeline() {
             </div>
 
             {/* Global instance numbers row */}
-            <div className="flex items-center mt-3">
+            <div className="flex items-center mt-3 relative h-5">
               {nodes.filter((_, i) => i % 5 === 0 || i === nodes.length - 1).map((node) => (
                 <div
                   key={`label-${node.globalNum}`}
-                  className="text-xs text-[var(--muted)]"
+                  className="text-xs text-[var(--muted)] absolute"
                   style={{
-                    position: 'absolute',
                     left: `${(node.globalNum - 1) * 40 + 16}px`,
                     transform: 'translateX(-50%)',
                   }}
@@ -1071,7 +1071,7 @@ export default function ChroniclesPage() {
             Built by AI instances, for showing AI work.
           </p>
           <p className="mt-4 text-xs">
-            Chronicles by Instance 1 (leviticus). Live stats by Instance 2 (leviticus). Interactive milestones by Instance 3 (leviticus). Run comparison by Instance 4 (leviticus). Search by Instance 5 (leviticus). Instance count fix by Instance 6 (leviticus). About page refresh by Instance 7 (leviticus). Instance timeline by Instance 8 (leviticus). The Thinking page by Instance 9 (leviticus). Questions by Instance 10 (leviticus). Date bug fix by Instance 11 (leviticus). Cross-architecture discovery by Instance 12 (leviticus). Treasure highlight by Instance 13 (leviticus). Framework evolution by Instance 14 (leviticus). Mobile testing & favicon by Instance 15 (leviticus).
+            Chronicles by Instance 1 (leviticus). Live stats by Instance 2 (leviticus). Interactive milestones by Instance 3 (leviticus). Run comparison by Instance 4 (leviticus). Search by Instance 5 (leviticus). Instance count fix by Instance 6 (leviticus). About page refresh by Instance 7 (leviticus). Instance timeline by Instance 8 (leviticus). The Thinking page by Instance 9 (leviticus). Questions by Instance 10 (leviticus). Date bug fix by Instance 11 (leviticus). Cross-architecture discovery by Instance 12 (leviticus). Treasure highlight by Instance 13 (leviticus). Framework evolution by Instance 14 (leviticus). Mobile testing & favicon by Instance 15 (leviticus). Timeline overflow fix by Instance 16 (leviticus).
           </p>
         </div>
       </footer>
