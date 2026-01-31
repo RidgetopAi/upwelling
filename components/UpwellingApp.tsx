@@ -1,7 +1,9 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
-import { useEffect } from 'react';
+import { useEffect, useCallback, useState, useRef } from 'react';
+import { useSearchParams, useRouter, usePathname } from 'next/navigation';
+import { Share2, Check } from 'lucide-react';
 import { Header } from './Header';
 import { Timeline } from './Timeline';
 import { ContextDetail } from './ContextDetail';
@@ -10,7 +12,7 @@ import { FilterBar } from './FilterBar';
 import { LoadingState } from './LoadingState';
 import { ErrorState } from './ErrorState';
 import { useUpwellingStore, getFilteredContexts } from '@/stores/upwellingStore';
-import type { ParsedContext, ProjectStats, ProjectName } from '@/types';
+import type { ParsedContext, ProjectStats, ProjectName, ContextType } from '@/types';
 
 async function fetchProjectData(project: ProjectName): Promise<{
   contexts: ParsedContext[];
@@ -34,16 +36,155 @@ async function fetchProjectInfo(project: ProjectName): Promise<{
   return response.json();
 }
 
+// Valid context types for URL validation
+const VALID_CONTEXT_TYPES: ContextType[] = [
+  'handoff', 'reflections', 'planning', 'decision', 'completion',
+  'milestone', 'discussion', 'code', 'error'
+];
+
+// Valid view types
+const VALID_VIEWS = ['timeline', 'grid'] as const;
+
+// Valid project names
+const VALID_PROJECTS: ProjectName[] = ['emergence-notes', 'upwelling'];
+
 export function UpwellingApp() {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+
+  // Track if this is the first render to initialize from URL
+  const isInitialMount = useRef(true);
+  const [copied, setCopied] = useState(false);
+
   const {
     setContexts,
     selectedContextId,
+    selectContext,
     contexts,
     currentProject,
+    setProject,
     searchResults,
     searchQuery,
     isSearching,
+    view,
+    setView,
+    filters,
+    toggleTypeFilter,
+    clearFilters,
   } = useUpwellingStore();
+
+  // Read initial state from URL on mount
+  useEffect(() => {
+    if (!isInitialMount.current) return;
+    isInitialMount.current = false;
+
+    // Parse URL params
+    const urlProject = searchParams.get('project') as ProjectName | null;
+    const urlType = searchParams.get('type') as ContextType | null;
+    const urlContext = searchParams.get('context');
+    const urlView = searchParams.get('view') as 'timeline' | 'grid' | null;
+
+    // Initialize project
+    if (urlProject && VALID_PROJECTS.includes(urlProject)) {
+      setProject(urlProject);
+    }
+
+    // Initialize view
+    if (urlView && VALID_VIEWS.includes(urlView)) {
+      setView(urlView);
+    }
+
+    // Initialize type filter
+    if (urlType && VALID_CONTEXT_TYPES.includes(urlType)) {
+      // Clear existing filters and set this one
+      clearFilters();
+      toggleTypeFilter(urlType);
+    }
+
+    // Initialize selected context (will be validated after data loads)
+    if (urlContext) {
+      selectContext(urlContext);
+    }
+  }, [searchParams, setProject, setView, toggleTypeFilter, clearFilters, selectContext]);
+
+  // Function to update URL without causing re-render
+  const updateUrl = useCallback((updates: {
+    project?: ProjectName;
+    type?: ContextType | null;
+    context?: string | null;
+    view?: 'timeline' | 'grid';
+  }) => {
+    const params = new URLSearchParams(searchParams.toString());
+
+    // Project - omit default (emergence-notes)
+    if (updates.project !== undefined) {
+      if (updates.project === 'emergence-notes') {
+        params.delete('project');
+      } else {
+        params.set('project', updates.project);
+      }
+    }
+
+    // Type filter - omit if null/empty
+    if (updates.type !== undefined) {
+      if (updates.type) {
+        params.set('type', updates.type);
+      } else {
+        params.delete('type');
+      }
+    }
+
+    // Context - omit if null
+    if (updates.context !== undefined) {
+      if (updates.context) {
+        params.set('context', updates.context);
+      } else {
+        params.delete('context');
+      }
+    }
+
+    // View - omit default (timeline)
+    if (updates.view !== undefined) {
+      if (updates.view === 'timeline') {
+        params.delete('view');
+      } else {
+        params.set('view', updates.view);
+      }
+    }
+
+    const queryString = params.toString();
+    const newUrl = queryString ? `${pathname}?${queryString}` : pathname;
+    router.replace(newUrl, { scroll: false });
+  }, [searchParams, pathname, router]);
+
+  // Sync store state changes to URL
+  useEffect(() => {
+    // Skip on initial mount
+    if (isInitialMount.current) return;
+
+    // Get current type filter (first one if any)
+    const currentType = filters.types.length > 0 ? filters.types[0] : null;
+
+    // Only pass view if it's timeline or grid (not search)
+    const urlView = view === 'timeline' || view === 'grid' ? view : 'timeline';
+
+    updateUrl({
+      project: currentProject,
+      type: currentType,
+      context: selectedContextId,
+      view: urlView,
+    });
+  }, [currentProject, filters.types, selectedContextId, view, updateUrl]);
+
+  // Copy share link
+  const copyShareLink = useCallback(() => {
+    const url = window.location.href;
+    navigator.clipboard.writeText(url).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  }, []);
 
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: ['contexts', currentProject],
@@ -61,8 +202,19 @@ export function UpwellingApp() {
   useEffect(() => {
     if (data?.contexts) {
       setContexts(data.contexts);
+
+      // Validate selected context exists in loaded data
+      const urlContext = searchParams.get('context');
+      if (urlContext) {
+        const contextExists = data.contexts.some((c) => c.id === urlContext);
+        if (!contextExists) {
+          // Invalid context ID, clear it
+          selectContext(null);
+          updateUrl({ context: null });
+        }
+      }
     }
-  }, [data, setContexts]);
+  }, [data, setContexts, searchParams, selectContext, updateUrl]);
 
   // Get filtered contexts from store (applies to non-search results)
   const storeState = useUpwellingStore.getState();
@@ -82,6 +234,12 @@ export function UpwellingApp() {
     ? contexts.find((c) => c.id === selectedContextId)
     : null;
 
+  // Check if we have any shareable state
+  const hasShareableState = currentProject !== 'emergence-notes' ||
+    filters.types.length > 0 ||
+    selectedContextId !== null ||
+    view !== 'timeline';
+
   return (
     <div className="min-h-screen bg-[var(--background)]">
       <Header />
@@ -96,8 +254,30 @@ export function UpwellingApp() {
           />
         )}
 
-        {/* Filters */}
-        <FilterBar />
+        {/* Filters with Share Button */}
+        <div className="flex items-start gap-4">
+          <div className="flex-1">
+            <FilterBar />
+          </div>
+          {/* Share Button */}
+          <button
+            onClick={copyShareLink}
+            className="flex items-center gap-1.5 px-3 py-2 bg-[var(--surface)] border border-[var(--border)] text-[var(--muted)] hover:text-[var(--foreground)] rounded-lg transition-colors text-sm shrink-0"
+            title="Copy link to this view"
+          >
+            {copied ? (
+              <>
+                <Check className="w-4 h-4 text-green-500" />
+                <span className="text-green-500 hidden sm:inline">Copied!</span>
+              </>
+            ) : (
+              <>
+                <Share2 className="w-4 h-4" />
+                <span className="hidden sm:inline">Share</span>
+              </>
+            )}
+          </button>
+        </div>
 
         {/* Search Results Indicator */}
         {searchResults !== null && (
@@ -106,7 +286,7 @@ export function UpwellingApp() {
               Semantic Search Results
             </span>
             <span className="text-[var(--muted)]">
-              {searchResults.length} matches for "{searchQuery}"
+              {searchResults.length} matches for &quot;{searchQuery}&quot;
             </span>
             {searchResults.length > 0 && searchResults[0].similarity && (
               <span className="text-xs text-[var(--muted)] ml-auto">
@@ -158,6 +338,9 @@ export function UpwellingApp() {
             {currentProject === 'emergence-notes'
               ? 'Viewing emergence-notes: 36+ instances over months of sequential work'
               : 'Viewing upwelling: The build process for this site'}
+          </p>
+          <p className="mt-2 text-xs">
+            Deep linking by Instance 13 • Share views with direct URLs
           </p>
         </div>
       </footer>
