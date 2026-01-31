@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { Search, Activity, Grid, List, BookOpen, Layers, X, Loader2, Info, Network } from 'lucide-react';
 import { useUpwellingStore } from '@/stores/upwellingStore';
 import { cn } from '@/lib/utils';
+import { HealthStatus } from './HealthStatus';
 import type { ProjectName, ParsedContext } from '@/types';
 
 const PROJECT_INFO: Record<ProjectName, { icon: typeof BookOpen; label: string; description: string }> = {
@@ -211,6 +212,9 @@ export function Header() {
             <Info className="w-4 h-4" />
             <span>About</span>
           </Link>
+
+          {/* Health Status */}
+          <HealthStatus />
         </div>
 
         {/* Mobile Layout */}
@@ -266,6 +270,8 @@ export function Header() {
               >
                 <Info className="w-4 h-4" />
               </Link>
+              {/* Health Status */}
+              <HealthStatus />
             </div>
           </div>
 
