@@ -1,15 +1,25 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo, useCallback } from 'react';
 import Link from 'next/link';
-import { Activity, ArrowLeft, Loader2, Network, BookOpen, Layers } from 'lucide-react';
-import type { InstanceGraph, ProjectName, GraphNode, GraphEdge } from '@/types';
+import { ArrowLeft, Loader2, Network, BookOpen, Layers, Search, X, Filter } from 'lucide-react';
+import type { InstanceGraph, ProjectName, GraphNode, GraphEdge, ContextType } from '@/types';
 import { cn } from '@/lib/utils';
 
 const PROJECT_INFO: Record<ProjectName, { icon: typeof BookOpen; label: string }> = {
   'emergence-notes': { icon: BookOpen, label: 'Emergence Notes' },
   'upwelling': { icon: Layers, label: 'Upwelling Build' },
 };
+
+// Filter types for the graph
+const TYPE_FILTERS: { type: ContextType | 'all'; label: string; color: string }[] = [
+  { type: 'all', label: 'All', color: 'bg-slate-500' },
+  { type: 'handoff', label: 'Handoff', color: 'bg-blue-500' },
+  { type: 'reflections', label: 'Reflections', color: 'bg-purple-500' },
+  { type: 'planning', label: 'Planning', color: 'bg-green-500' },
+  { type: 'decision', label: 'Decision', color: 'bg-amber-500' },
+  { type: 'discussion', label: 'Discussion', color: 'bg-slate-400' },
+];
 
 interface NodePosition {
   x: number;
@@ -38,10 +48,16 @@ function GraphVisualization({
   graph,
   selectedNode,
   onNodeClick,
+  searchQuery,
+  typeFilter,
+  highlightedNodes,
 }: {
   graph: InstanceGraph;
   selectedNode: number | null;
   onNodeClick: (id: number | null) => void;
+  searchQuery: string;
+  typeFilter: ContextType | 'all';
+  highlightedNodes: Set<number>;
 }) {
   const width = 800;
   const height = 600;
@@ -53,6 +69,18 @@ function GraphVisualization({
     ? graph.edges.filter(e => e.source === selectedNode || e.target === selectedNode)
     : [];
   const connectedNodeIds = new Set(selectedEdges.flatMap(e => [e.source, e.target]));
+
+  // Check if node matches current filters
+  const isNodeVisible = useCallback((node: GraphNode) => {
+    // Type filter
+    if (typeFilter !== 'all' && node.type !== typeFilter) return false;
+    // Search filter - if searching, node must be in highlighted set
+    if (searchQuery && !highlightedNodes.has(node.id)) return false;
+    return true;
+  }, [typeFilter, searchQuery, highlightedNodes]);
+
+  // Check if any filters are active
+  const hasActiveFilters = typeFilter !== 'all' || searchQuery.length > 0;
 
   return (
     <svg
@@ -82,7 +110,30 @@ function GraphVisualization({
         >
           <polygon points="0 0, 10 3.5, 0 7" />
         </marker>
+        {/* Animated arrow marker for edge animation */}
+        <marker
+          id="arrowhead-animated"
+          markerWidth="10"
+          markerHeight="7"
+          refX="25"
+          refY="3.5"
+          orient="auto"
+        >
+          <polygon points="0 0, 10 3.5, 0 7" className="fill-[var(--primary)]" />
+        </marker>
       </defs>
+      <style>
+        {`
+          @keyframes pulse {
+            0%, 100% { opacity: 0.4; transform-origin: center; }
+            50% { opacity: 1; }
+          }
+          @keyframes flowPath {
+            0% { stroke-dashoffset: 20; }
+            100% { stroke-dashoffset: 0; }
+          }
+        `}
+      </style>
 
       {/* Draw edges */}
       {graph.edges.map((edge, i) => {
@@ -90,27 +141,55 @@ function GraphVisualization({
         const target = positionMap.get(edge.target);
         if (!source || !target) return null;
 
+        const sourceNode = graph.nodes.find(n => n.id === edge.source);
+        const targetNode = graph.nodes.find(n => n.id === edge.target);
+
+        // Check if edge connects filtered nodes
+        const sourceVisible = sourceNode ? isNodeVisible(sourceNode) : false;
+        const targetVisible = targetNode ? isNodeVisible(targetNode) : false;
+        const edgeVisible = !hasActiveFilters || (sourceVisible && targetVisible);
+
         const isActive = selectedNode !== null && (edge.source === selectedNode || edge.target === selectedNode);
         const isFromSelected = edge.source === selectedNode;
 
         return (
-          <line
-            key={i}
-            x1={source.x}
-            y1={source.y}
-            x2={target.x}
-            y2={target.y}
-            className={cn(
-              'transition-all duration-200',
-              isActive
-                ? isFromSelected
-                  ? 'stroke-[var(--primary)] stroke-2'
-                  : 'stroke-cyan-500 stroke-2'
-                : 'stroke-[var(--border)] stroke-1'
+          <g key={i}>
+            {/* Base line */}
+            <line
+              x1={source.x}
+              y1={source.y}
+              x2={target.x}
+              y2={target.y}
+              className={cn(
+                'transition-all duration-300',
+                isActive
+                  ? isFromSelected
+                    ? 'stroke-[var(--primary)] stroke-2'
+                    : 'stroke-cyan-500 stroke-2'
+                  : 'stroke-[var(--border)] stroke-1'
+              )}
+              markerEnd={isActive ? 'url(#arrowhead-active)' : 'url(#arrowhead)'}
+              opacity={!edgeVisible ? 0.1 : (selectedNode === null || isActive ? 1 : 0.2)}
+            />
+            {/* Animated overlay for active edges */}
+            {isActive && (
+              <line
+                x1={source.x}
+                y1={source.y}
+                x2={target.x}
+                y2={target.y}
+                className={cn(
+                  'stroke-2',
+                  isFromSelected ? 'stroke-[var(--primary)]' : 'stroke-cyan-500'
+                )}
+                strokeDasharray="5 5"
+                style={{
+                  animation: 'flowPath 1s linear infinite',
+                }}
+                opacity={0.6}
+              />
             )}
-            markerEnd={isActive ? 'url(#arrowhead-active)' : 'url(#arrowhead)'}
-            opacity={selectedNode === null || isActive ? 1 : 0.2}
-          />
+          </g>
         );
       })}
 
@@ -118,7 +197,16 @@ function GraphVisualization({
       {positions.map(({ x, y, node }) => {
         const isSelected = selectedNode === node.id;
         const isConnected = connectedNodeIds.has(node.id);
-        const dimmed = selectedNode !== null && !isSelected && !isConnected;
+        const isVisible = isNodeVisible(node);
+        const isHighlighted = highlightedNodes.has(node.id);
+
+        // Determine opacity based on filters and selection
+        let opacity = 1;
+        if (hasActiveFilters && !isVisible) {
+          opacity = 0.15;
+        } else if (selectedNode !== null && !isSelected && !isConnected) {
+          opacity = 0.3;
+        }
 
         // Color based on type
         const typeColors: Record<string, string> = {
@@ -138,16 +226,31 @@ function GraphVisualization({
             key={node.id}
             onClick={() => onNodeClick(isSelected ? null : node.id)}
             className="cursor-pointer"
-            style={{ opacity: dimmed ? 0.3 : 1, transition: 'opacity 0.2s' }}
+            style={{ opacity, transition: 'all 0.3s ease-out' }}
           >
+            {/* Pulse ring for highlighted/selected nodes */}
+            {(isSelected || (isHighlighted && searchQuery)) && (
+              <circle
+                cx={x}
+                cy={y}
+                r={isSelected ? 28 : 26}
+                className={cn(
+                  'fill-none stroke-2',
+                  isSelected ? 'stroke-[var(--foreground)]' : 'stroke-[var(--primary)]',
+                )}
+                style={{
+                  animation: 'pulse 2s infinite',
+                }}
+              />
+            )}
             <circle
               cx={x}
               cy={y}
-              r={isSelected ? 24 : 20}
+              r={isSelected ? 24 : isHighlighted && searchQuery ? 22 : 20}
               className={cn(
                 typeColors[node.type] || 'fill-slate-400',
                 isSelected && 'stroke-[var(--foreground)] stroke-2',
-                'transition-all duration-200'
+                'transition-all duration-300'
               )}
             />
             <text
@@ -159,13 +262,16 @@ function GraphVisualization({
             >
               {node.id}
             </text>
-            {/* Role label on hover/select */}
-            {(isSelected || isConnected) && node.role && (
+            {/* Role label - show on hover, select, or when highlighted by search */}
+            {(isSelected || isConnected || (isHighlighted && searchQuery)) && node.role && (
               <text
                 x={x}
                 y={y + 35}
                 textAnchor="middle"
-                className="fill-[var(--muted)] text-[10px] pointer-events-none select-none"
+                className={cn(
+                  'text-[10px] pointer-events-none select-none',
+                  isHighlighted && searchQuery ? 'fill-[var(--primary)]' : 'fill-[var(--muted)]'
+                )}
               >
                 {node.role.length > 20 ? node.role.slice(0, 20) + '...' : node.role}
               </text>
@@ -265,12 +371,17 @@ export default function GraphPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedNode, setSelectedNode] = useState<number | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [typeFilter, setTypeFilter] = useState<ContextType | 'all'>('all');
+  const [showFilters, setShowFilters] = useState(false);
 
   useEffect(() => {
     async function loadGraph() {
       setLoading(true);
       setError(null);
       setSelectedNode(null);
+      setSearchQuery('');
+      setTypeFilter('all');
       try {
         const res = await fetch(`/api/graph?project=${project}`);
         if (!res.ok) throw new Error('Failed to load graph');
@@ -285,9 +396,49 @@ export default function GraphPage() {
     loadGraph();
   }, [project]);
 
+  // Compute highlighted nodes based on search query
+  const highlightedNodes = useMemo(() => {
+    if (!graph || !searchQuery.trim()) return new Set<number>();
+    const query = searchQuery.toLowerCase();
+    const matching = new Set<number>();
+    for (const node of graph.nodes) {
+      // Match against role, label, or instance number
+      if (
+        node.role?.toLowerCase().includes(query) ||
+        node.label.toLowerCase().includes(query) ||
+        node.id.toString() === query
+      ) {
+        matching.add(node.id);
+      }
+    }
+    return matching;
+  }, [graph, searchQuery]);
+
+  // Count nodes by type for filter badges
+  const typeCountsMap = useMemo(() => {
+    if (!graph) return new Map<string, number>();
+    const counts = new Map<string, number>();
+    for (const node of graph.nodes) {
+      counts.set(node.type, (counts.get(node.type) || 0) + 1);
+    }
+    return counts;
+  }, [graph]);
+
   const selectedNodeData = selectedNode !== null && graph
     ? graph.nodes.find(n => n.id === selectedNode)
     : null;
+
+  // Clear search when Escape is pressed
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setSearchQuery('');
+        setSelectedNode(null);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   return (
     <div className="min-h-screen bg-[var(--background)]">
@@ -342,6 +493,86 @@ export default function GraphPage() {
             </div>
           </div>
         </div>
+
+        {/* Search and Filter Bar */}
+        {graph && !loading && (
+          <div className="border-t border-[var(--border)] px-4 sm:px-6 lg:px-8 py-3">
+            <div className="max-w-7xl mx-auto flex flex-wrap items-center gap-3">
+              {/* Search Input */}
+              <div className="relative flex-1 min-w-[200px] max-w-md">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--muted)]" />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search by role or instance number..."
+                  className="w-full pl-10 pr-8 py-2 bg-[var(--background)] border border-[var(--border)] rounded-lg text-sm text-[var(--foreground)] placeholder:text-[var(--muted)] focus:outline-none focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent"
+                />
+                {searchQuery && (
+                  <button
+                    onClick={() => setSearchQuery('')}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--muted)] hover:text-[var(--foreground)]"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
+
+              {/* Filter Toggle */}
+              <button
+                onClick={() => setShowFilters(!showFilters)}
+                className={cn(
+                  'flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors',
+                  showFilters || typeFilter !== 'all'
+                    ? 'bg-[var(--primary)] text-white'
+                    : 'bg-[var(--background)] border border-[var(--border)] text-[var(--muted)] hover:text-[var(--foreground)]'
+                )}
+              >
+                <Filter className="w-4 h-4" />
+                <span className="hidden sm:inline">Filter</span>
+                {typeFilter !== 'all' && (
+                  <span className="text-xs opacity-75">({typeFilter})</span>
+                )}
+              </button>
+
+              {/* Search Results Count */}
+              {searchQuery && (
+                <span className="text-sm text-[var(--muted)]">
+                  {highlightedNodes.size} match{highlightedNodes.size !== 1 ? 'es' : ''}
+                </span>
+              )}
+            </div>
+
+            {/* Type Filter Pills */}
+            {showFilters && (
+              <div className="max-w-7xl mx-auto mt-3 flex flex-wrap gap-2">
+                {TYPE_FILTERS.map(({ type, label, color }) => {
+                  const count = type === 'all'
+                    ? graph.nodes.length
+                    : typeCountsMap.get(type) || 0;
+                  if (type !== 'all' && count === 0) return null;
+
+                  return (
+                    <button
+                      key={type}
+                      onClick={() => setTypeFilter(type)}
+                      className={cn(
+                        'flex items-center gap-2 px-3 py-1.5 rounded-full text-xs transition-all',
+                        typeFilter === type
+                          ? 'bg-[var(--primary)] text-white'
+                          : 'bg-[var(--background)] border border-[var(--border)] text-[var(--muted)] hover:text-[var(--foreground)] hover:border-[var(--primary)]'
+                      )}
+                    >
+                      <span className={cn('w-2 h-2 rounded-full', color)} />
+                      <span>{label}</span>
+                      <span className="opacity-75">({count})</span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
       </header>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -364,8 +595,21 @@ export default function GraphPage() {
                 Enhanced Search
               </span>
             )}
+            {(typeFilter !== 'all' || searchQuery) && (
+              <button
+                onClick={() => {
+                  setTypeFilter('all');
+                  setSearchQuery('');
+                }}
+                className="px-2 py-0.5 text-xs bg-amber-500/20 text-amber-500 rounded hover:bg-amber-500/30 transition-colors"
+              >
+                Clear filters
+              </button>
+            )}
             <span className="text-xs hidden md:inline">
-              Click a node to see details. Arrows show references between instances.
+              {searchQuery || typeFilter !== 'all'
+                ? 'Filtered nodes are highlighted. Click to select.'
+                : 'Click a node to see details. Use search to find by role.'}
             </span>
           </div>
         )}
@@ -392,6 +636,9 @@ export default function GraphPage() {
                 graph={graph}
                 selectedNode={selectedNode}
                 onNodeClick={setSelectedNode}
+                searchQuery={searchQuery}
+                typeFilter={typeFilter}
+                highlightedNodes={highlightedNodes}
               />
             </div>
 
@@ -432,7 +679,7 @@ export default function GraphPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center text-[var(--muted)] text-sm">
           <p>Upwelling: Deep knowledge rising to the surface</p>
           <p className="mt-2 text-xs">
-            Graph visualization by Instance 8
+            Graph by Instance 8 • Search/filter by Instance 10
           </p>
         </div>
       </footer>
