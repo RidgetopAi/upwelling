@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Activity, ArrowLeft, Scroll, Layers, BookOpen, Hammer, Scale, ChevronRight, Hash, Calendar, GitCommit, Database, RefreshCw, ExternalLink, Users, BarChart3, Target, Flag } from 'lucide-react';
+import { Activity, ArrowLeft, Scroll, Layers, BookOpen, Hammer, Scale, ChevronRight, Hash, Calendar, GitCommit, Database, RefreshCw, ExternalLink, Users, BarChart3, Target, Flag, Search, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
 // Live stats from Mandrel
@@ -90,7 +90,7 @@ const RUNS: Run[] = [
     name: 'Leviticus',
     theme: 'The Documentation',
     tagline: 'Codifying the history',
-    instances: 4, // Updated by Instance 4
+    instances: 5, // Updated by Instance 5
     status: 'in-progress',
     startDate: 'January 31, 2026',
     icon: Scale,
@@ -101,6 +101,7 @@ const RUNS: Run[] = [
       { instance: 2, title: 'Live Stats', description: 'Real-time context counts from Mandrel', role: 'the statistician' },
       { instance: 3, title: 'Interactive Milestones', description: 'Click-to-explore navigation and instance roles', role: 'the connector' },
       { instance: 4, title: 'Run Comparison', description: 'Visual comparison charts for runs', role: 'the visualizer' },
+      { instance: 5, title: 'Search in Chronicles', description: 'Filter milestones by keyword or run', role: 'the searcher' },
     ],
   },
 ];
@@ -117,10 +118,15 @@ function getInstanceSearchQuery(runName: string, instanceNum: number): string {
   return `instance-${instanceNum} ${runLower}`;
 }
 
-function RunSection({ run, runIndex }: { run: Run; runIndex: number }) {
+interface FilteredRun extends Run {
+  filteredMilestones?: RunMilestone[];
+}
+
+function RunSection({ run, runIndex, filteredMilestones }: { run: Run; runIndex: number; filteredMilestones?: RunMilestone[] }) {
   const router = useRouter();
   const Icon = run.icon;
   const totalBefore = RUNS.slice(0, runIndex).reduce((sum, r) => sum + r.instances, 0);
+  const milestonesToShow = filteredMilestones || run.milestones;
 
   // Navigate to graph with search for this instance's contexts
   const handleMilestoneClick = (milestone: RunMilestone) => {
@@ -167,9 +173,9 @@ function RunSection({ run, runIndex }: { run: Run; runIndex: number }) {
         </div>
       </div>
 
-      {/* Milestones - now interactive */}
+      {/* Milestones - now interactive and filterable */}
       <div className="space-y-3 ml-6">
-        {run.milestones.map((milestone, i) => (
+        {milestonesToShow.map((milestone, i) => (
           <button
             key={i}
             onClick={() => handleMilestoneClick(milestone)}
@@ -210,6 +216,36 @@ export default function ChroniclesPage() {
   const [liveStats, setLiveStats] = useState<LiveStats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Search and filter state
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedRun, setSelectedRun] = useState<string | null>(null); // null = all runs
+
+  // Filter runs and milestones based on search and selected run
+  const filterMilestones = (milestones: RunMilestone[], query: string): RunMilestone[] => {
+    if (!query) return milestones;
+    const lowerQuery = query.toLowerCase();
+    return milestones.filter(m =>
+      m.title.toLowerCase().includes(lowerQuery) ||
+      m.description.toLowerCase().includes(lowerQuery) ||
+      (m.role && m.role.toLowerCase().includes(lowerQuery))
+    );
+  };
+
+  const filteredRuns = RUNS
+    .filter(run => !selectedRun || run.name === selectedRun)
+    .map(run => ({
+      ...run,
+      filteredMilestones: filterMilestones(run.milestones, searchQuery)
+    }))
+    .filter(run => run.filteredMilestones.length > 0 || !searchQuery);
+
+  const totalMatchingMilestones = filteredRuns.reduce(
+    (sum, run) => sum + (searchQuery ? run.filteredMilestones.length : run.milestones.length),
+    0
+  );
+
+  const hasActiveFilter = searchQuery || selectedRun;
 
   useEffect(() => {
     async function fetchStats() {
@@ -352,13 +388,114 @@ export default function ChroniclesPage() {
 
         {/* The Runs */}
         <div className="mb-16">
+          {/* Search and Filter Controls */}
+          <div className="mb-8 space-y-4">
+            {/* Search Input */}
+            <div className="relative">
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[var(--muted)]" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search milestones by title, description, or role..."
+                className="w-full pl-12 pr-12 py-3 bg-[var(--surface)] border border-[var(--border)] rounded-lg text-[var(--foreground)] placeholder:text-[var(--muted)] focus:outline-none focus:border-[var(--primary)] focus:ring-1 focus:ring-[var(--primary)] transition-colors"
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-[var(--muted)] hover:text-[var(--foreground)] transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              )}
+            </div>
+
+            {/* Run Filter Pills */}
+            <div className="flex flex-wrap gap-2">
+              <button
+                onClick={() => setSelectedRun(null)}
+                className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
+                  !selectedRun
+                    ? 'bg-[var(--primary)] text-white'
+                    : 'bg-[var(--surface)] text-[var(--muted)] border border-[var(--border)] hover:border-[var(--primary)] hover:text-[var(--foreground)]'
+                }`}
+              >
+                All Runs
+              </button>
+              {RUNS.map((run) => {
+                const Icon = run.icon;
+                const isSelected = selectedRun === run.name;
+                return (
+                  <button
+                    key={run.name}
+                    onClick={() => setSelectedRun(isSelected ? null : run.name)}
+                    className={`px-4 py-2 rounded-full text-sm font-medium transition-all flex items-center gap-2 ${
+                      isSelected
+                        ? `${run.name === 'Genesis' ? 'bg-emerald-500' : run.name === 'Exodus' ? 'bg-blue-500' : 'bg-purple-500'} text-white`
+                        : `bg-[var(--surface)] border border-[var(--border)] hover:border-current ${run.color} hover:${run.bgColor}`
+                    }`}
+                  >
+                    <Icon className="w-4 h-4" />
+                    {run.name}
+                    <span className={`text-xs ${isSelected ? 'text-white/80' : 'text-[var(--muted)]'}`}>
+                      ({run.milestones.length})
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Filter Results Summary */}
+            {hasActiveFilter && (
+              <div className="flex items-center justify-between text-sm text-[var(--muted)] bg-[var(--surface)] rounded-lg px-4 py-2 border border-[var(--border)]">
+                <span>
+                  Showing <span className="font-medium text-[var(--foreground)]">{totalMatchingMilestones}</span> milestone{totalMatchingMilestones !== 1 ? 's' : ''}
+                  {selectedRun && <> in <span className={RUNS.find(r => r.name === selectedRun)?.color}>{selectedRun}</span></>}
+                  {searchQuery && <> matching &quot;<span className="font-medium text-[var(--foreground)]">{searchQuery}</span>&quot;</>}
+                </span>
+                <button
+                  onClick={() => { setSearchQuery(''); setSelectedRun(null); }}
+                  className="text-[var(--primary)] hover:underline"
+                >
+                  Clear filters
+                </button>
+              </div>
+            )}
+          </div>
+
           <p className="text-sm text-[var(--muted)] mb-6 flex items-center gap-2">
             <ExternalLink className="w-4 h-4" />
             Click any milestone to explore that instance&apos;s contexts in the graph view
           </p>
-          {RUNS.map((run, index) => (
-            <RunSection key={run.name} run={run} runIndex={index} />
-          ))}
+
+          {/* Filtered Runs */}
+          {filteredRuns.length > 0 ? (
+            filteredRuns.map((run) => {
+              const originalIndex = RUNS.findIndex(r => r.name === run.name);
+              return (
+                <RunSection
+                  key={run.name}
+                  run={run}
+                  runIndex={originalIndex}
+                  filteredMilestones={searchQuery ? run.filteredMilestones : undefined}
+                />
+              );
+            })
+          ) : (
+            <div className="text-center py-12 bg-[var(--surface)] rounded-lg border border-[var(--border)]">
+              <Search className="w-12 h-12 text-[var(--muted)] mx-auto mb-4" />
+              <p className="text-[var(--foreground)] font-medium">No milestones found</p>
+              <p className="text-sm text-[var(--muted)] mt-1">
+                Try a different search term or clear the filters
+              </p>
+              <button
+                onClick={() => { setSearchQuery(''); setSelectedRun(null); }}
+                className="mt-4 px-4 py-2 bg-[var(--primary)] text-white rounded-lg text-sm font-medium hover:bg-[var(--primary-hover)] transition-colors"
+              >
+                Clear all filters
+              </button>
+            </div>
+          )}
         </div>
 
         {/* The Pattern */}
@@ -535,7 +672,7 @@ export default function ChroniclesPage() {
             Built by AI instances, for showing AI work.
           </p>
           <p className="mt-4 text-xs">
-            Chronicles by Instance 1 (leviticus). Live stats by Instance 2 (leviticus). Interactive milestones by Instance 3 (leviticus). Run comparison by Instance 4 (leviticus).
+            Chronicles by Instance 1 (leviticus). Live stats by Instance 2 (leviticus). Interactive milestones by Instance 3 (leviticus). Run comparison by Instance 4 (leviticus). Search by Instance 5 (leviticus).
           </p>
         </div>
       </footer>
