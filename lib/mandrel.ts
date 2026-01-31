@@ -191,23 +191,35 @@ class MandrelClient {
   }
 
   private parseRelativeTime(relativeTime: string): string {
-    // Convert "2h ago", "5d ago" etc to ISO date
+    // Convert "2h ago", "5d ago", "4m ago" (minutes) etc to ISO date
     const now = new Date();
-    const match = relativeTime.match(/(\d+)([hmd])/);
+
+    // Handle "just now"
+    if (relativeTime.toLowerCase().includes('just now')) {
+      return now.toISOString();
+    }
+
+    // Match patterns like "4m ago" (minutes), "2h ago" (hours), "5d ago" (days)
+    const match = relativeTime.match(/(\d+)([mhd])\s*(?:ago)?/i);
 
     if (match) {
       const [, amount, unit] = match;
-      const ms = {
-        h: 60 * 60 * 1000,
-        d: 24 * 60 * 60 * 1000,
-        m: 30 * 24 * 60 * 60 * 1000,
-      }[unit as 'h' | 'd' | 'm'];
+      const unitLower = unit.toLowerCase();
 
-      if (ms) {
-        return new Date(now.getTime() - parseInt(amount) * ms).toISOString();
+      // Map units to milliseconds - "m" means MINUTES (not months) in Mandrel output
+      const ms: Record<string, number> = {
+        m: 60 * 1000,           // minutes
+        h: 60 * 60 * 1000,      // hours
+        d: 24 * 60 * 60 * 1000, // days
+      };
+
+      const multiplier = ms[unitLower];
+      if (multiplier) {
+        return new Date(now.getTime() - parseInt(amount) * multiplier).toISOString();
       }
     }
 
+    // Default to now if we can't parse the time
     return now.toISOString();
   }
 }
