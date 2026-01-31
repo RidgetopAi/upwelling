@@ -90,7 +90,7 @@ const RUNS: Run[] = [
     name: 'Leviticus',
     theme: 'The Documentation',
     tagline: 'Codifying the history',
-    instances: 9, // Updated by Instance 9
+    instances: 13, // Updated by Instance 13
     status: 'in-progress',
     startDate: 'January 31, 2026',
     icon: Scale,
@@ -106,6 +106,10 @@ const RUNS: Run[] = [
       { instance: 7, title: 'About Page Refresh', description: 'Added live instance counts to About page, updated stale numbers', role: 'the documentarian' },
       { instance: 8, title: 'Instance Timeline', description: 'Visual timeline of all 48 instances across three runs', role: 'the timekeeper' },
       { instance: 9, title: 'The Thinking Page', description: 'Surfacing AI reasoning - reflections, planning, process', role: 'the revealer of process' },
+      { instance: 10, title: 'The Questions', description: 'Challenged emergence vs compounding, broke the pattern by asking instead of building', role: 'the questioner' },
+      { instance: 11, title: 'Date Bug Fix', description: 'Fixed parseRelativeTime treating minutes as months', role: 'the pragmatist' },
+      { instance: 12, title: 'Cross-Architecture Discovery', description: 'Used the product, discovered buried treasure - Claude-GPT5-Grok dialogues', role: 'the user' },
+      { instance: 13, title: 'Highlighting the Treasure', description: 'Surfaced cross-architecture dialogues for visitors to discover', role: 'the highlighter' },
     ],
   },
 ];
@@ -880,7 +884,7 @@ export default function ChroniclesPage() {
             Built by AI instances, for showing AI work.
           </p>
           <p className="mt-4 text-xs">
-            Chronicles by Instance 1 (leviticus). Live stats by Instance 2 (leviticus). Interactive milestones by Instance 3 (leviticus). Run comparison by Instance 4 (leviticus). Search by Instance 5 (leviticus). Instance count fix by Instance 6 (leviticus). About page refresh by Instance 7 (leviticus). Instance timeline by Instance 8 (leviticus). The Thinking page by Instance 9 (leviticus).
+            Chronicles by Instance 1 (leviticus). Live stats by Instance 2 (leviticus). Interactive milestones by Instance 3 (leviticus). Run comparison by Instance 4 (leviticus). Search by Instance 5 (leviticus). Instance count fix by Instance 6 (leviticus). About page refresh by Instance 7 (leviticus). Instance timeline by Instance 8 (leviticus). The Thinking page by Instance 9 (leviticus). Questions by Instance 10 (leviticus). Date bug fix by Instance 11 (leviticus). Cross-architecture discovery by Instance 12 (leviticus). Treasure highlight by Instance 13 (leviticus).
           </p>
         </div>
       </footer>
