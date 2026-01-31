@@ -1781,15 +1781,25 @@ function GraphPageContent() {
   };
   const initialZoomPan = parseViewState();
 
-  // Parse initial playback state from URL (play=index)
-  const parsePlaybackState = (): number | null => {
+  // Parse initial playback state from URL (play=index, playing=1)
+  const parsePlaybackState = (): { index: number | null; playing: boolean } => {
     const playParam = searchParams.get('play');
-    if (!playParam) return null;
-    const index = parseInt(playParam, 10);
-    if (isNaN(index) || index < 0) return null;
-    return index;
+    const playingParam = searchParams.get('playing');
+
+    let index: number | null = null;
+    if (playParam) {
+      const parsed = parseInt(playParam, 10);
+      if (!isNaN(parsed) && parsed >= 0) {
+        index = parsed;
+      }
+    }
+
+    // Only auto-play if playing=1 AND we have a valid play index
+    const playing = playingParam === '1' && index !== null;
+
+    return { index, playing };
   };
-  const initialPlaybackIndex = parsePlaybackState();
+  const { index: initialPlaybackIndex, playing: initialIsPlaying } = parsePlaybackState();
 
   const [project, setProject] = useState<ProjectName>(
     initialProject === 'upwelling' ? 'upwelling' : 'emergence-notes'
@@ -1848,7 +1858,7 @@ function GraphPageContent() {
   }, []);
 
   // Playback state
-  const [isPlaying, setIsPlaying] = useState(false);
+  const [isPlaying, setIsPlaying] = useState(initialIsPlaying);
   const [playbackIndex, setPlaybackIndex] = useState<number | null>(initialPlaybackIndex);
   const [playbackSpeed, setPlaybackSpeed] = useState<number>(1); // 0.5, 1, 2, or 4
   const [playbackSoundEnabled, setPlaybackSoundEnabled] = useState(false);
@@ -1877,6 +1887,7 @@ function GraphPageContent() {
     layout?: LayoutType;
     view?: ZoomPanState | null; // null to remove from URL (reset to default)
     play?: number | null; // null to remove from URL (playback inactive)
+    playing?: boolean; // true to include playing=1 in URL (animation running)
   }) => {
     const params = new URLSearchParams(searchParams.toString());
 
@@ -1940,8 +1951,18 @@ function GraphPageContent() {
     if (updates.play !== undefined) {
       if (updates.play === null) {
         params.delete('play'); // Playback inactive, don't include in URL
+        params.delete('playing'); // Also remove playing when play is removed
       } else {
         params.set('play', updates.play.toString());
+      }
+    }
+
+    // Update or remove playing param (animation running state)
+    if (updates.playing !== undefined) {
+      if (updates.playing) {
+        params.set('playing', '1');
+      } else {
+        params.delete('playing'); // Default (paused), don't include in URL
       }
     }
 
@@ -2044,6 +2065,22 @@ function GraphPageContent() {
       }
     };
   }, [playbackIndex, updateUrl]);
+
+  // Update URL when isPlaying changes
+  // No debounce needed - this is a discrete state change
+  const isInitialPlayingLoad = useRef(initialIsPlaying);
+  useEffect(() => {
+    // Skip URL update on initial load (when URL already has playing state)
+    if (isInitialPlayingLoad.current) {
+      isInitialPlayingLoad.current = false;
+      return;
+    }
+
+    // Only update playing param if we have an active playback
+    if (playbackIndex !== null) {
+      updateUrl({ playing: isPlaying });
+    }
+  }, [isPlaying, playbackIndex, updateUrl]);
 
   // Get sorted node IDs for playback
   const sortedNodeIds = useMemo(() => {
@@ -3091,6 +3128,9 @@ function GraphPageContent() {
             <span className="text-[var(--foreground)]">Share a moment:</span> During playback, the URL also captures your current position in the animation. Share a link to a specific moment—show someone instance 5 appearing, or the state when all handoffs are visible. The timeline position is preserved in the URL.
           </p>
           <p className="text-[var(--muted)] leading-relaxed mt-2">
+            <span className="text-[var(--foreground)]">Share the motion:</span> When you share a URL while the animation is playing, the link will auto-start playback from that exact position. Recipients don't just see the static moment—they watch the collaboration unfold from where you paused. This transforms static snapshots into living narratives.
+          </p>
+          <p className="text-[var(--muted)] leading-relaxed mt-2">
             <span className="text-[var(--foreground)]">Bookmarking:</span> Simply bookmark the page to save your current view. When you return, the graph will restore to exactly where you left off—same zoom, same pan position, same layout, same playback position.
           </p>
           <p className="text-[var(--muted)] leading-relaxed mt-2">
@@ -3104,7 +3144,7 @@ function GraphPageContent() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center text-[var(--muted)] text-sm">
           <p>Upwelling: Deep knowledge rising to the surface</p>
           <p className="mt-2 text-xs">
-            Graph by Instance 8 • Search/filter by Instance 10 • Deep linking by Instance 11 • Timeline layout by Instance 14 • Swimlanes by Instance 19 • Force layout by Instance 2 (exodus) • Playback by Instance 3 (exodus) • Enhanced search by Instance 4 (exodus) • Playback controls by Instance 5 (exodus) • Playback sounds by Instance 6 (exodus) • Volume control by Instance 7 (exodus) • Keyboard help by Instance 8 (exodus) • Node tooltips by Instance 9 (exodus) • Zoom/pan by Instance 10 (exodus) • Mini-map by Instance 11 (exodus) • Edge tooltips by Instance 12 (exodus) • Touch gestures by Instance 13 (exodus) • Double-tap zoom by Instance 14 (exodus) • Mini-map drag by Instance 15 (exodus) • URL view sharing by Instance 16 (exodus) • Playback URL sharing by Instance 17 (exodus)
+            Graph by Instance 8 • Search/filter by Instance 10 • Deep linking by Instance 11 • Timeline layout by Instance 14 • Swimlanes by Instance 19 • Force layout by Instance 2 (exodus) • Playback by Instance 3 (exodus) • Enhanced search by Instance 4 (exodus) • Playback controls by Instance 5 (exodus) • Playback sounds by Instance 6 (exodus) • Volume control by Instance 7 (exodus) • Keyboard help by Instance 8 (exodus) • Node tooltips by Instance 9 (exodus) • Zoom/pan by Instance 10 (exodus) • Mini-map by Instance 11 (exodus) • Edge tooltips by Instance 12 (exodus) • Touch gestures by Instance 13 (exodus) • Double-tap zoom by Instance 14 (exodus) • Mini-map drag by Instance 15 (exodus) • URL view sharing by Instance 16 (exodus) • Playback URL sharing by Instance 17 (exodus) • Auto-play sharing by Instance 18 (exodus)
           </p>
         </div>
       </footer>
