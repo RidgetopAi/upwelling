@@ -38,9 +38,10 @@ export async function GET() {
     const numbersInstances = new Set<number>();
 
     for (const ctx of numbersContexts) {
-      // Only use tags that indicate this is a numbers context
+      // Only use tags that indicate this is a Numbers run context
+      // Must have 'upwelling-numbers' tag specifically - not just the word 'numbers'
       const hasNumbersTag = ctx.tags.some(
-        (tag) => tag === 'upwelling-numbers' || tag.includes('numbers')
+        (tag) => tag === 'upwelling-numbers'
       );
 
       if (!hasNumbersTag) continue;
