@@ -3,7 +3,7 @@
 import { Suspense, useEffect, useState, useMemo, useCallback, useRef } from 'react';
 import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, Loader2, Network, BookOpen, Layers, Search, X, Filter, Share2, Check, Circle, ArrowRight } from 'lucide-react';
+import { ArrowLeft, Loader2, Network, BookOpen, Layers, Search, X, Filter, Share2, Check, Circle, ArrowRight, LayoutGrid } from 'lucide-react';
 import type { InstanceGraph, ProjectName, GraphNode, GraphEdge, ContextType } from '@/types';
 import { cn } from '@/lib/utils';
 
@@ -22,7 +22,7 @@ const TYPE_FILTERS: { type: ContextType | 'all'; label: string; color: string }[
   { type: 'discussion', label: 'Discussion', color: 'bg-slate-400' },
 ];
 
-type LayoutType = 'circular' | 'timeline';
+type LayoutType = 'circular' | 'timeline' | 'swimlanes';
 
 interface NodePosition {
   x: number;
@@ -30,8 +30,76 @@ interface NodePosition {
   node: GraphNode;
 }
 
+// Lane configuration for swimlanes layout
+const SWIMLANE_TYPES: ContextType[] = ['handoff', 'reflections', 'planning', 'decision', 'discussion'];
+const SWIMLANE_COLORS: Record<ContextType, string> = {
+  handoff: 'rgba(59, 130, 246, 0.1)', // blue-500
+  reflections: 'rgba(168, 85, 247, 0.1)', // purple-500
+  planning: 'rgba(34, 197, 94, 0.1)', // green-500
+  decision: 'rgba(245, 158, 11, 0.1)', // amber-500
+  discussion: 'rgba(148, 163, 184, 0.1)', // slate-400
+  code: 'rgba(6, 182, 212, 0.1)', // cyan-500
+  completion: 'rgba(16, 185, 129, 0.1)', // emerald-500
+  milestone: 'rgba(234, 179, 8, 0.1)', // yellow-500
+  error: 'rgba(239, 68, 68, 0.1)', // red-500
+};
+
 function calculateNodePositions(nodes: GraphNode[], width: number, height: number, layout: LayoutType): NodePosition[] {
   const sorted = [...nodes].sort((a, b) => a.id - b.id);
+
+  if (layout === 'swimlanes') {
+    // Swimlanes layout: x-axis = time, y-axis = type lanes
+    const padding = 60;
+    const topPadding = 80; // Extra padding for lane labels
+    const usableWidth = width - 2 * padding;
+    const usableHeight = height - topPadding - padding;
+    const minId = sorted[0]?.id ?? 0;
+    const maxId = sorted[sorted.length - 1]?.id ?? minId;
+    const range = maxId - minId || 1;
+
+    // Determine which lanes are needed based on actual node types
+    const presentTypes = new Set(sorted.map(n => n.type));
+    const activeLanes = SWIMLANE_TYPES.filter(t => presentTypes.has(t));
+    // Add any types not in SWIMLANE_TYPES that are present
+    for (const node of sorted) {
+      if (!activeLanes.includes(node.type)) {
+        activeLanes.push(node.type);
+      }
+    }
+
+    const laneHeight = usableHeight / activeLanes.length;
+    const laneMap = new Map(activeLanes.map((type, i) => [type, i]));
+
+    // Group nodes by instance and type for stacking
+    const groupKey = (node: GraphNode) => `${node.id}-${node.type}`;
+    const groupedNodes = new Map<string, GraphNode[]>();
+    for (const node of sorted) {
+      const key = groupKey(node);
+      const group = groupedNodes.get(key) || [];
+      group.push(node);
+      groupedNodes.set(key, group);
+    }
+
+    const positions: NodePosition[] = [];
+    for (const node of sorted) {
+      const laneIndex = laneMap.get(node.type) ?? 0;
+      const key = groupKey(node);
+      const groupNodes = groupedNodes.get(key)!;
+      const stackIndex = groupNodes.indexOf(node);
+
+      // Calculate x based on instance number
+      const normalizedX = (node.id - minId) / range;
+      const x = padding + normalizedX * usableWidth;
+
+      // Calculate y based on lane position
+      const laneCenter = topPadding + (laneIndex + 0.5) * laneHeight;
+      const stackOffset = stackIndex * 25; // Offset for multiple nodes in same instance+type
+      const y = laneCenter + stackOffset;
+
+      positions.push({ x, y, node });
+    }
+    return positions;
+  }
 
   if (layout === 'timeline') {
     // Timeline layout: x-axis represents time (instance number), y-axis used for separation
@@ -390,6 +458,126 @@ function GraphVisualization({
           </g>
         );
       })()}
+
+      {/* Swimlane Background and Labels (only shown in swimlanes layout) */}
+      {layout === 'swimlanes' && graph.nodes.length > 0 && (() => {
+        const padding = 60;
+        const topPadding = 80;
+        const usableWidth = width - 2 * padding;
+        const usableHeight = height - topPadding - padding;
+        const sorted = [...graph.nodes].sort((a, b) => a.id - b.id);
+        const minId = sorted[0].id;
+        const maxId = sorted[sorted.length - 1].id;
+
+        // Determine which lanes are needed
+        const presentTypes = new Set(graph.nodes.map(n => n.type));
+        const activeLanes = SWIMLANE_TYPES.filter(t => presentTypes.has(t));
+        for (const node of graph.nodes) {
+          if (!activeLanes.includes(node.type)) {
+            activeLanes.push(node.type);
+          }
+        }
+
+        const laneHeight = usableHeight / activeLanes.length;
+
+        const laneColors: Record<string, string> = {
+          handoff: 'rgba(59, 130, 246, 0.08)',
+          reflections: 'rgba(168, 85, 247, 0.08)',
+          planning: 'rgba(34, 197, 94, 0.08)',
+          decision: 'rgba(245, 158, 11, 0.08)',
+          discussion: 'rgba(148, 163, 184, 0.08)',
+          code: 'rgba(6, 182, 212, 0.08)',
+          completion: 'rgba(16, 185, 129, 0.08)',
+          milestone: 'rgba(234, 179, 8, 0.08)',
+          error: 'rgba(239, 68, 68, 0.08)',
+        };
+
+        const labelColors: Record<string, string> = {
+          handoff: 'rgb(59, 130, 246)',
+          reflections: 'rgb(168, 85, 247)',
+          planning: 'rgb(34, 197, 94)',
+          decision: 'rgb(245, 158, 11)',
+          discussion: 'rgb(148, 163, 184)',
+          code: 'rgb(6, 182, 212)',
+          completion: 'rgb(16, 185, 129)',
+          milestone: 'rgb(234, 179, 8)',
+          error: 'rgb(239, 68, 68)',
+        };
+
+        return (
+          <g>
+            {/* Lane backgrounds */}
+            {activeLanes.map((type, i) => (
+              <g key={type}>
+                <rect
+                  x={padding - 10}
+                  y={topPadding + i * laneHeight}
+                  width={usableWidth + 20}
+                  height={laneHeight}
+                  fill={laneColors[type] || 'rgba(148, 163, 184, 0.08)'}
+                  rx={4}
+                />
+                {/* Lane label on left */}
+                <text
+                  x={padding - 15}
+                  y={topPadding + (i + 0.5) * laneHeight}
+                  textAnchor="end"
+                  dominantBaseline="middle"
+                  className="text-[10px] font-medium"
+                  fill={labelColors[type] || 'rgb(148, 163, 184)'}
+                >
+                  {type.charAt(0).toUpperCase() + type.slice(1)}
+                </text>
+                {/* Lane separator line */}
+                {i > 0 && (
+                  <line
+                    x1={padding - 10}
+                    y1={topPadding + i * laneHeight}
+                    x2={width - padding + 10}
+                    y2={topPadding + i * laneHeight}
+                    stroke="var(--border)"
+                    strokeWidth={0.5}
+                    strokeDasharray="4 4"
+                  />
+                )}
+              </g>
+            ))}
+            {/* Timeline axis at bottom */}
+            <line
+              x1={padding}
+              y1={height - 30}
+              x2={width - padding}
+              y2={height - 30}
+              className="stroke-[var(--border)] stroke-1"
+              markerEnd="url(#arrowhead)"
+            />
+            <text
+              x={padding}
+              y={height - 15}
+              textAnchor="middle"
+              className="fill-[var(--muted)] text-[10px]"
+            >
+              #{minId}
+            </text>
+            <text
+              x={width - padding}
+              y={height - 15}
+              textAnchor="middle"
+              className="fill-[var(--muted)] text-[10px]"
+            >
+              #{maxId}
+            </text>
+            <text
+              x={width / 2}
+              y={height - 15}
+              textAnchor="middle"
+              className="fill-[var(--muted)] text-[10px]"
+            >
+              Time →
+            </text>
+          </g>
+        );
+      })()}
     </svg>
   );
 }
@@ -461,7 +649,7 @@ function NodeDetail({ node, graph }: { node: GraphNode; graph: InstanceGraph }) 
 
 // Valid type filters for URL validation
 const VALID_TYPE_FILTERS = ['all', 'handoff', 'reflections', 'planning', 'decision', 'discussion'] as const;
-const VALID_LAYOUTS: LayoutType[] = ['circular', 'timeline'];
+const VALID_LAYOUTS: LayoutType[] = ['circular', 'timeline', 'swimlanes'];
 
 // Loading fallback for Suspense
 function GraphPageLoading() {
@@ -752,7 +940,9 @@ function GraphPageContent() {
         case 'l':
           if (!e.metaKey && !e.ctrlKey) {
             e.preventDefault();
-            handleLayoutChange(layout === 'circular' ? 'timeline' : 'circular');
+            // Cycle through layouts: circular -> timeline -> swimlanes -> circular
+            const nextLayout = layout === 'circular' ? 'timeline' : layout === 'timeline' ? 'swimlanes' : 'circular';
+            handleLayoutChange(nextLayout);
           }
           break;
       }
@@ -956,6 +1146,19 @@ function GraphPageContent() {
                 <ArrowRight className="w-3 h-3" />
                 <span className="hidden sm:inline">Timeline</span>
               </button>
+              <button
+                onClick={() => handleLayoutChange('swimlanes')}
+                className={cn(
+                  'flex items-center gap-1 px-2 py-1 rounded text-xs transition-colors',
+                  layout === 'swimlanes'
+                    ? 'bg-[var(--primary)] text-white'
+                    : 'text-[var(--muted)] hover:text-[var(--foreground)]'
+                )}
+                title="Swimlanes layout (press L)"
+              >
+                <LayoutGrid className="w-3 h-3" />
+                <span className="hidden sm:inline">Swimlanes</span>
+              </button>
             </div>
             {/* Share Link Button */}
             <button
@@ -1085,6 +1288,9 @@ function GraphPageContent() {
           <p className="text-[var(--muted)] leading-relaxed mt-2">
             <span className="text-[var(--foreground)]">Timeline</span> layout arranges instances from left (earliest) to right (latest)—showing the chronological flow of knowledge building. This makes the sequential nature of AI collaboration visible: Instance 1 on the left passed knowledge to Instance 2, who passed to Instance 3, and so on.
           </p>
+          <p className="text-[var(--muted)] leading-relaxed mt-2">
+            <span className="text-[var(--foreground)]">Swimlanes</span> layout combines time (left to right) with type (horizontal bands). Each context type—handoff, reflections, planning—gets its own lane. This reveals patterns: when did planning contexts cluster? Which instances produced multiple types? How did the proportion of reflections change over time?
+          </p>
         </div>
       </main>
 
@@ -1093,7 +1299,7 @@ function GraphPageContent() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center text-[var(--muted)] text-sm">
           <p>Upwelling: Deep knowledge rising to the surface</p>
           <p className="mt-2 text-xs">
-            Graph by Instance 8 • Search/filter by Instance 10 • Deep linking by Instance 11 • Timeline layout by Instance 14
+            Graph by Instance 8 • Search/filter by Instance 10 • Deep linking by Instance 11 • Timeline layout by Instance 14 • Swimlanes by Instance 19
           </p>
         </div>
       </footer>
