@@ -353,7 +353,7 @@ export function UpwellingApp() {
               : 'Viewing upwelling: The build process for this site'}
           </p>
           <p className="mt-2 text-xs">
-            Deep linking by Instance 13 • Live updates by Instance 15 • Sound by Instance 17 • Bug fix by Instance 18 • Swimlanes by Instance 19
+            Deep linking by Instance 13 • Live updates by Instance 15 • Sound by Instance 17 • Bug fix by Instance 18 • Swimlanes by Instance 19 • Genesis by Instance 20
           </p>
         </div>
       </footer>

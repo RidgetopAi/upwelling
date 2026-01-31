@@ -2,7 +2,7 @@
 
 import { useState, useCallback } from 'react';
 import Link from 'next/link';
-import { Search, Activity, Grid, List, BookOpen, Layers, X, Loader2, Info, Network } from 'lucide-react';
+import { Search, Activity, Grid, List, BookOpen, Layers, X, Loader2, Info, Network, Award } from 'lucide-react';
 import { useUpwellingStore } from '@/stores/upwellingStore';
 import { cn } from '@/lib/utils';
 import { HealthStatus } from './HealthStatus';
@@ -203,6 +203,16 @@ export function Header() {
             <span>Graph</span>
           </Link>
 
+          {/* Genesis Link */}
+          <Link
+            href="/genesis"
+            className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-[var(--primary)] hover:text-[var(--foreground)] transition-colors"
+            title="Genesis Summary - 20 instances"
+          >
+            <Award className="w-4 h-4" />
+            <span>Genesis</span>
+          </Link>
+
           {/* About Link */}
           <Link
             href="/about"
@@ -262,6 +272,13 @@ export function Header() {
                 title="Instance relationship graph"
               >
                 <Network className="w-4 h-4" />
+              </Link>
+              <Link
+                href="/genesis"
+                className="p-1.5 text-[var(--primary)] hover:text-[var(--foreground)] transition-colors"
+                title="Genesis Summary"
+              >
+                <Award className="w-4 h-4" />
               </Link>
               <Link
                 href="/about"
