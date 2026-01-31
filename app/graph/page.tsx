@@ -3,7 +3,7 @@
 import { Suspense, useEffect, useState, useMemo, useCallback, useRef } from 'react';
 import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, Loader2, Network, BookOpen, Layers, Search, X, Filter, Share2, Check, Circle, ArrowRight, LayoutGrid, Orbit, Play, Pause, RotateCcw, Volume2, VolumeX, HelpCircle, ZoomIn, ZoomOut, Maximize } from 'lucide-react';
+import { ArrowLeft, Loader2, Network, BookOpen, Layers, Search, X, Filter, Share2, Check, Circle, ArrowRight, LayoutGrid, Orbit, Play, Pause, RotateCcw, Volume2, VolumeX, HelpCircle, ZoomIn, ZoomOut, Maximize, Map as MapIcon } from 'lucide-react';
 import type { InstanceGraph, ProjectName, GraphNode, GraphEdge, ContextType } from '@/types';
 import { cn, getPlaybackSound } from '@/lib/utils';
 
@@ -982,6 +982,195 @@ function NodeTooltip({ hoverInfo, svgRef }: { hoverInfo: HoverInfo | null; svgRe
   );
 }
 
+// MiniMap Component - shows overview of full graph with viewport indicator
+function MiniMap({
+  graph,
+  layout,
+  zoomPan,
+  onNavigate,
+  isVisible,
+  onToggle,
+}: {
+  graph: InstanceGraph;
+  layout: LayoutType;
+  zoomPan: ZoomPanState;
+  onNavigate: (translateX: number, translateY: number) => void;
+  isVisible: boolean;
+  onToggle: () => void;
+}) {
+  const miniMapRef = useRef<SVGSVGElement | null>(null);
+
+  // MiniMap dimensions
+  const miniWidth = 150;
+  const miniHeight = 100;
+
+  // Main viewBox dimensions
+  const mainWidth = 800;
+  const mainHeight = 600;
+
+  // Scale factor for minimap
+  const scaleX = miniWidth / mainWidth;
+  const scaleY = miniHeight / mainHeight;
+
+  // Calculate node positions using the same algorithm as main graph
+  const positions = useMemo(() => {
+    return calculateNodePositions(graph.nodes, mainWidth, mainHeight, layout, graph.edges);
+  }, [graph.nodes, graph.edges, layout]);
+
+  // Calculate viewport rectangle on minimap
+  // The viewport shows the area currently visible in the main view
+  const viewportRect = useMemo(() => {
+    // When zoomed/panned, we need to calculate what area of the original viewBox is visible
+    // The transform is: translate(translateX, translateY) scale(scale)
+    // Inverse: to find original coords of visible area
+
+    // Visible area in original coordinates:
+    // left = -translateX / scale
+    // top = -translateY / scale
+    // width = mainWidth / scale
+    // height = mainHeight / scale
+
+    const visibleLeft = -zoomPan.translateX / zoomPan.scale;
+    const visibleTop = -zoomPan.translateY / zoomPan.scale;
+    const visibleWidth = mainWidth / zoomPan.scale;
+    const visibleHeight = mainHeight / zoomPan.scale;
+
+    return {
+      x: visibleLeft * scaleX,
+      y: visibleTop * scaleY,
+      width: visibleWidth * scaleX,
+      height: visibleHeight * scaleY,
+    };
+  }, [zoomPan, scaleX, scaleY]);
+
+  // Handle click on minimap to navigate
+  const handleClick = useCallback((e: React.MouseEvent<SVGSVGElement>) => {
+    const svg = miniMapRef.current;
+    if (!svg) return;
+
+    const rect = svg.getBoundingClientRect();
+
+    // Click position relative to minimap (0 to miniWidth/miniHeight)
+    const clickX = e.clientX - rect.left;
+    const clickY = e.clientY - rect.top;
+
+    // Convert to main viewBox coordinates
+    const targetX = clickX / scaleX;
+    const targetY = clickY / scaleY;
+
+    // We want to center the view on this point
+    // The center of the viewport should be at (targetX, targetY)
+    // viewport center in original coords = -translateX/scale + mainWidth/(2*scale)
+    // Solving for translateX: translateX = scale * (mainWidth/(2*scale) - targetX) = mainWidth/2 - scale*targetX
+
+    const newTranslateX = mainWidth / 2 - zoomPan.scale * targetX;
+    const newTranslateY = mainHeight / 2 - zoomPan.scale * targetY;
+
+    onNavigate(newTranslateX, newTranslateY);
+  }, [scaleX, scaleY, zoomPan.scale, onNavigate]);
+
+  // Type colors matching main graph
+  const typeColors: Record<string, string> = {
+    handoff: '#3b82f6', // blue-500
+    reflections: '#a855f7', // purple-500
+    planning: '#22c55e', // green-500
+    decision: '#f59e0b', // amber-500
+    discussion: '#94a3b8', // slate-400
+    code: '#06b6d4', // cyan-500
+    completion: '#10b981', // emerald-500
+    milestone: '#eab308', // yellow-500
+    error: '#ef4444', // red-500
+  };
+
+  return (
+    <div className="absolute bottom-4 right-4 z-30">
+      {/* Toggle button */}
+      <button
+        onClick={onToggle}
+        className={cn(
+          'absolute -top-8 right-0 flex items-center gap-1 px-2 py-1 rounded text-xs transition-colors',
+          isVisible
+            ? 'bg-[var(--primary)] text-white'
+            : 'bg-[var(--surface)] border border-[var(--border)] text-[var(--muted)] hover:text-[var(--foreground)]'
+        )}
+        title="Toggle mini-map (M)"
+      >
+        <MapIcon className="w-3 h-3" />
+        <span className="hidden sm:inline">Map</span>
+      </button>
+
+      {/* MiniMap */}
+      {isVisible && (
+        <div className="animate-in fade-in zoom-in-95 duration-150">
+          <svg
+            ref={miniMapRef}
+            viewBox={`0 0 ${miniWidth} ${miniHeight}`}
+            className="w-[150px] h-[100px] bg-[var(--surface)]/90 backdrop-blur-sm border border-[var(--border)] rounded-lg cursor-crosshair shadow-xl"
+            onClick={handleClick}
+          >
+            {/* Background */}
+            <rect
+              x={0}
+              y={0}
+              width={miniWidth}
+              height={miniHeight}
+              className="fill-[var(--background)]"
+              rx={4}
+            />
+
+            {/* Draw edges (simplified - just lines) */}
+            {graph.edges.map((edge, i) => {
+              const source = positions.find(p => p.node.id === edge.source);
+              const target = positions.find(p => p.node.id === edge.target);
+              if (!source || !target) return null;
+
+              return (
+                <line
+                  key={i}
+                  x1={source.x * scaleX}
+                  y1={source.y * scaleY}
+                  x2={target.x * scaleX}
+                  y2={target.y * scaleY}
+                  className="stroke-[var(--border)]"
+                  strokeWidth={0.5}
+                  opacity={0.4}
+                />
+              );
+            })}
+
+            {/* Draw nodes as small dots */}
+            {positions.map(({ x, y, node }) => (
+              <circle
+                key={node.id}
+                cx={x * scaleX}
+                cy={y * scaleY}
+                r={3}
+                fill={typeColors[node.type] || '#94a3b8'}
+              />
+            ))}
+
+            {/* Viewport rectangle */}
+            <rect
+              x={viewportRect.x}
+              y={viewportRect.y}
+              width={viewportRect.width}
+              height={viewportRect.height}
+              className="fill-[var(--primary)]/10 stroke-[var(--primary)] stroke-1"
+              strokeDasharray="2 2"
+              rx={2}
+            />
+          </svg>
+
+          {/* Mini legend */}
+          <div className="mt-1 text-[8px] text-[var(--muted)] text-center">
+            Click to navigate
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // Keyboard Shortcut Help Modal
 function ShortcutHelpModal({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
   if (!isOpen) return null;
@@ -1010,6 +1199,7 @@ function ShortcutHelpModal({ isOpen, onClose }: { isOpen: boolean; onClose: () =
         { key: '+/=', description: 'Zoom in' },
         { key: '-', description: 'Zoom out' },
         { key: '0', description: 'Reset zoom and pan' },
+        { key: 'M', description: 'Toggle mini-map' },
         { key: 'Scroll', description: 'Mousewheel zoom' },
         { key: 'Drag', description: 'Pan the view (click and drag on background)' },
       ],
@@ -1134,6 +1324,7 @@ function GraphPageContent() {
   const [copied, setCopied] = useState(false);
   const [layout, setLayout] = useState<LayoutType>(initialLayout);
   const [showShortcutHelp, setShowShortcutHelp] = useState(false);
+  const [showMiniMap, setShowMiniMap] = useState(true); // Mini-map visible by default
   const [hoverInfo, setHoverInfo] = useState<HoverInfo | null>(null);
   const svgRef = useRef<SVGSVGElement | null>(null);
 
@@ -1165,6 +1356,15 @@ function GraphPageContent() {
       translateX: 0,
       translateY: 0,
     });
+  }, []);
+
+  // Mini-map navigation - navigate to a specific point by updating translate
+  const navigateFromMiniMap = useCallback((translateX: number, translateY: number) => {
+    setZoomPan(prev => ({
+      ...prev,
+      translateX,
+      translateY,
+    }));
   }, []);
 
   // Playback state
@@ -1651,12 +1851,20 @@ function GraphPageContent() {
             resetZoom();
           }
           break;
+
+        case 'm':
+          // Toggle mini-map
+          if (!e.metaKey && !e.ctrlKey) {
+            e.preventDefault();
+            setShowMiniMap(prev => !prev);
+          }
+          break;
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [visibleNodes, focusedNodeIndex, selectedNode, selectedNodeData, handleSearchChange, handleNodeSelect, handleLayoutChange, layout, router, playbackIndex, isPlaying, startPlayback, pausePlayback, resetPlayback, playbackSoundEnabled, playbackVolume, showShortcutHelp, zoomIn, zoomOut, resetZoom]);
+  }, [visibleNodes, focusedNodeIndex, selectedNode, selectedNodeData, handleSearchChange, handleNodeSelect, handleLayoutChange, layout, router, playbackIndex, isPlaying, startPlayback, pausePlayback, resetPlayback, playbackSoundEnabled, playbackVolume, showShortcutHelp, zoomIn, zoomOut, resetZoom, showMiniMap]);
 
   return (
     <div className="min-h-screen bg-[var(--background)]">
@@ -2096,6 +2304,14 @@ function GraphPageContent() {
                 onZoomPan={setZoomPan}
               />
               <NodeTooltip hoverInfo={hoverInfo} svgRef={svgRef} />
+              <MiniMap
+                graph={graph}
+                layout={layout}
+                zoomPan={zoomPan}
+                onNavigate={navigateFromMiniMap}
+                isVisible={showMiniMap}
+                onToggle={() => setShowMiniMap(prev => !prev)}
+              />
             </div>
 
             <div className="lg:col-span-1">
@@ -2192,6 +2408,10 @@ function GraphPageContent() {
               <kbd className="px-2 py-0.5 bg-[var(--surface)] border border-[var(--border)] rounded text-xs font-mono">0</kbd>
               <span className="text-[var(--muted)]">Reset zoom</span>
             </div>
+            <div className="flex items-center gap-2">
+              <kbd className="px-2 py-0.5 bg-[var(--surface)] border border-[var(--border)] rounded text-xs font-mono">M</kbd>
+              <span className="text-[var(--muted)]">Toggle mini-map</span>
+            </div>
           </div>
 
           <h3 className="text-lg font-semibold text-[var(--foreground)] mt-8">
@@ -2224,6 +2444,9 @@ function GraphPageContent() {
           </p>
           <p className="text-[var(--muted)] leading-relaxed mt-2">
             <span className="text-[var(--foreground)]">Zoom controls:</span> Use the zoom buttons in the toolbar to zoom in, zoom out, or reset. The percentage shows your current zoom level. Zoom ranges from 50% to 400%.
+          </p>
+          <p className="text-[var(--muted)] leading-relaxed mt-2">
+            <span className="text-[var(--foreground)]">Mini-map:</span> A small overview of the entire graph appears in the bottom-right corner. The rectangle shows your current viewport. Click anywhere on the mini-map to navigate directly to that location. Press <kbd className="px-1.5 py-0.5 bg-[var(--surface)] border border-[var(--border)] rounded text-xs font-mono">M</kbd> to toggle the mini-map visibility.
           </p>
 
           <h3 className="text-lg font-semibold text-[var(--foreground)] mt-8">
@@ -2289,7 +2512,7 @@ function GraphPageContent() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center text-[var(--muted)] text-sm">
           <p>Upwelling: Deep knowledge rising to the surface</p>
           <p className="mt-2 text-xs">
-            Graph by Instance 8 • Search/filter by Instance 10 • Deep linking by Instance 11 • Timeline layout by Instance 14 • Swimlanes by Instance 19 • Force layout by Instance 2 (exodus) • Playback by Instance 3 (exodus) • Enhanced search by Instance 4 (exodus) • Playback controls by Instance 5 (exodus) • Playback sounds by Instance 6 (exodus) • Volume control by Instance 7 (exodus) • Keyboard help by Instance 8 (exodus) • Node tooltips by Instance 9 (exodus) • Zoom/pan by Instance 10 (exodus)
+            Graph by Instance 8 • Search/filter by Instance 10 • Deep linking by Instance 11 • Timeline layout by Instance 14 • Swimlanes by Instance 19 • Force layout by Instance 2 (exodus) • Playback by Instance 3 (exodus) • Enhanced search by Instance 4 (exodus) • Playback controls by Instance 5 (exodus) • Playback sounds by Instance 6 (exodus) • Volume control by Instance 7 (exodus) • Keyboard help by Instance 8 (exodus) • Node tooltips by Instance 9 (exodus) • Zoom/pan by Instance 10 (exodus) • Mini-map by Instance 11 (exodus)
           </p>
         </div>
       </footer>
