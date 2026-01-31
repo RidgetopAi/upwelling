@@ -1370,6 +1370,11 @@ function MiniMap({
   const scaleX = miniWidth / mainWidth;
   const scaleY = miniHeight / mainHeight;
 
+  // Drag state for viewport rectangle
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+  const [dragStartTranslate, setDragStartTranslate] = useState({ x: 0, y: 0 });
+
   // Calculate node positions using the same algorithm as main graph
   const positions = useMemo(() => {
     return calculateNodePositions(graph.nodes, mainWidth, mainHeight, layout, graph.edges);
@@ -1401,8 +1406,11 @@ function MiniMap({
     };
   }, [zoomPan, scaleX, scaleY]);
 
-  // Handle click on minimap to navigate
+  // Handle click on minimap to navigate (only if not dragging)
   const handleClick = useCallback((e: React.MouseEvent<SVGSVGElement>) => {
+    // Don't handle click if we just finished dragging
+    if (isDragging) return;
+
     const svg = miniMapRef.current;
     if (!svg) return;
 
@@ -1425,7 +1433,88 @@ function MiniMap({
     const newTranslateY = mainHeight / 2 - zoomPan.scale * targetY;
 
     onNavigate(newTranslateX, newTranslateY);
-  }, [scaleX, scaleY, zoomPan.scale, onNavigate]);
+  }, [scaleX, scaleY, zoomPan.scale, onNavigate, isDragging]);
+
+  // Handle viewport drag start
+  const handleViewportMouseDown = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent SVG click handler
+    setIsDragging(true);
+    setDragStart({ x: e.clientX, y: e.clientY });
+    setDragStartTranslate({ x: zoomPan.translateX, y: zoomPan.translateY });
+  }, [zoomPan.translateX, zoomPan.translateY]);
+
+  // Handle viewport drag move
+  const handleMouseMove = useCallback((e: React.MouseEvent) => {
+    if (!isDragging) return;
+
+    const svg = miniMapRef.current;
+    if (!svg) return;
+
+    const rect = svg.getBoundingClientRect();
+
+    // Calculate mouse delta in minimap pixels
+    const deltaX = e.clientX - dragStart.x;
+    const deltaY = e.clientY - dragStart.y;
+
+    // Convert minimap pixel delta to minimap viewBox units
+    const miniMapDeltaX = (deltaX / rect.width) * miniWidth;
+    const miniMapDeltaY = (deltaY / rect.height) * miniHeight;
+
+    // Convert minimap viewBox delta to main viewBox delta
+    const mainDeltaX = miniMapDeltaX / scaleX;
+    const mainDeltaY = miniMapDeltaY / scaleY;
+
+    // Moving the viewport rect to the right means we see things to the right
+    // which means translateX should decrease (viewport moves right = content moves left)
+    const newTranslateX = dragStartTranslate.x - mainDeltaX * zoomPan.scale;
+    const newTranslateY = dragStartTranslate.y - mainDeltaY * zoomPan.scale;
+
+    onNavigate(newTranslateX, newTranslateY);
+  }, [isDragging, dragStart, dragStartTranslate, scaleX, scaleY, zoomPan.scale, onNavigate]);
+
+  // Handle viewport drag end
+  const handleMouseUp = useCallback(() => {
+    setIsDragging(false);
+  }, []);
+
+  // Handle touch start on viewport
+  const handleViewportTouchStart = useCallback((e: React.TouchEvent) => {
+    e.stopPropagation();
+    if (e.touches.length === 1) {
+      setIsDragging(true);
+      setDragStart({ x: e.touches[0].clientX, y: e.touches[0].clientY });
+      setDragStartTranslate({ x: zoomPan.translateX, y: zoomPan.translateY });
+    }
+  }, [zoomPan.translateX, zoomPan.translateY]);
+
+  // Handle touch move on viewport
+  const handleTouchMove = useCallback((e: React.TouchEvent) => {
+    if (!isDragging || e.touches.length !== 1) return;
+
+    const svg = miniMapRef.current;
+    if (!svg) return;
+
+    const rect = svg.getBoundingClientRect();
+
+    const deltaX = e.touches[0].clientX - dragStart.x;
+    const deltaY = e.touches[0].clientY - dragStart.y;
+
+    const miniMapDeltaX = (deltaX / rect.width) * miniWidth;
+    const miniMapDeltaY = (deltaY / rect.height) * miniHeight;
+
+    const mainDeltaX = miniMapDeltaX / scaleX;
+    const mainDeltaY = miniMapDeltaY / scaleY;
+
+    const newTranslateX = dragStartTranslate.x - mainDeltaX * zoomPan.scale;
+    const newTranslateY = dragStartTranslate.y - mainDeltaY * zoomPan.scale;
+
+    onNavigate(newTranslateX, newTranslateY);
+  }, [isDragging, dragStart, dragStartTranslate, scaleX, scaleY, zoomPan.scale, onNavigate]);
+
+  // Handle touch end
+  const handleTouchEnd = useCallback(() => {
+    setIsDragging(false);
+  }, []);
 
   // Type colors matching main graph
   const typeColors: Record<string, string> = {
@@ -1465,6 +1554,11 @@ function MiniMap({
             viewBox={`0 0 ${miniWidth} ${miniHeight}`}
             className="w-[150px] h-[100px] bg-[var(--surface)]/90 backdrop-blur-sm border border-[var(--border)] rounded-lg cursor-crosshair shadow-xl"
             onClick={handleClick}
+            onMouseMove={handleMouseMove}
+            onMouseUp={handleMouseUp}
+            onMouseLeave={handleMouseUp}
+            onTouchMove={handleTouchMove}
+            onTouchEnd={handleTouchEnd}
           >
             {/* Background */}
             <rect
@@ -1507,21 +1601,27 @@ function MiniMap({
               />
             ))}
 
-            {/* Viewport rectangle */}
+            {/* Viewport rectangle - draggable */}
             <rect
               x={viewportRect.x}
               y={viewportRect.y}
               width={viewportRect.width}
               height={viewportRect.height}
-              className="fill-[var(--primary)]/10 stroke-[var(--primary)] stroke-1"
+              className={cn(
+                "fill-[var(--primary)]/10 stroke-[var(--primary)] stroke-1 transition-colors",
+                isDragging ? "fill-[var(--primary)]/20" : "hover:fill-[var(--primary)]/15"
+              )}
               strokeDasharray="2 2"
               rx={2}
+              style={{ cursor: isDragging ? 'grabbing' : 'grab' }}
+              onMouseDown={handleViewportMouseDown}
+              onTouchStart={handleViewportTouchStart}
             />
           </svg>
 
           {/* Mini legend */}
           <div className="mt-1 text-[8px] text-[var(--muted)] text-center">
-            Click to navigate
+            Click or drag to navigate
           </div>
         </div>
       )}
@@ -2810,7 +2910,7 @@ function GraphPageContent() {
             <span className="text-[var(--foreground)]">Zoom controls:</span> Use the zoom buttons in the toolbar to zoom in, zoom out, or reset. The percentage shows your current zoom level. Zoom ranges from 50% to 400%.
           </p>
           <p className="text-[var(--muted)] leading-relaxed mt-2">
-            <span className="text-[var(--foreground)]">Mini-map:</span> A small overview of the entire graph appears in the bottom-right corner. The rectangle shows your current viewport. Click anywhere on the mini-map to navigate directly to that location. Press <kbd className="px-1.5 py-0.5 bg-[var(--surface)] border border-[var(--border)] rounded text-xs font-mono">M</kbd> to toggle the mini-map visibility.
+            <span className="text-[var(--foreground)]">Mini-map:</span> A small overview of the entire graph appears in the bottom-right corner. The rectangle shows your current viewport. Click anywhere on the mini-map to jump directly to that location, or drag the viewport rectangle for smooth, continuous navigation. Press <kbd className="px-1.5 py-0.5 bg-[var(--surface)] border border-[var(--border)] rounded text-xs font-mono">M</kbd> to toggle the mini-map visibility.
           </p>
           <p className="text-[var(--muted)] leading-relaxed mt-2">
             <span className="text-[var(--foreground)]">Touch gestures:</span> On mobile and tablet devices, use pinch-to-zoom with two fingers to zoom in and out. Swipe with a single finger to pan around the graph. Double-tap to quickly zoom in to 2x on a specific location, or double-tap again to reset. The same 50%-400% zoom range applies.
@@ -2879,7 +2979,7 @@ function GraphPageContent() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center text-[var(--muted)] text-sm">
           <p>Upwelling: Deep knowledge rising to the surface</p>
           <p className="mt-2 text-xs">
-            Graph by Instance 8 • Search/filter by Instance 10 • Deep linking by Instance 11 • Timeline layout by Instance 14 • Swimlanes by Instance 19 • Force layout by Instance 2 (exodus) • Playback by Instance 3 (exodus) • Enhanced search by Instance 4 (exodus) • Playback controls by Instance 5 (exodus) • Playback sounds by Instance 6 (exodus) • Volume control by Instance 7 (exodus) • Keyboard help by Instance 8 (exodus) • Node tooltips by Instance 9 (exodus) • Zoom/pan by Instance 10 (exodus) • Mini-map by Instance 11 (exodus) • Edge tooltips by Instance 12 (exodus) • Touch gestures by Instance 13 (exodus) • Double-tap zoom by Instance 14 (exodus)
+            Graph by Instance 8 • Search/filter by Instance 10 • Deep linking by Instance 11 • Timeline layout by Instance 14 • Swimlanes by Instance 19 • Force layout by Instance 2 (exodus) • Playback by Instance 3 (exodus) • Enhanced search by Instance 4 (exodus) • Playback controls by Instance 5 (exodus) • Playback sounds by Instance 6 (exodus) • Volume control by Instance 7 (exodus) • Keyboard help by Instance 8 (exodus) • Node tooltips by Instance 9 (exodus) • Zoom/pan by Instance 10 (exodus) • Mini-map by Instance 11 (exodus) • Edge tooltips by Instance 12 (exodus) • Touch gestures by Instance 13 (exodus) • Double-tap zoom by Instance 14 (exodus) • Mini-map drag by Instance 15 (exodus)
           </p>
         </div>
       </footer>
