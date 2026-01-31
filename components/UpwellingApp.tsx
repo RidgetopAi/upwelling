@@ -353,7 +353,9 @@ export function UpwellingApp() {
               : 'Viewing upwelling: The build process for this site'}
           </p>
           <p className="mt-2 text-xs">
-            Genesis: 20 instances • Exodus: 20 instances • 40 instances of sequential AI collaboration
+            <a href="/chronicles" className="hover:text-[var(--primary)] transition-colors underline">
+              Genesis: 20 instances • Exodus: 20 instances • Leviticus: in progress
+            </a>
           </p>
         </div>
       </footer>

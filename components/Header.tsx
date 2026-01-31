@@ -2,7 +2,7 @@
 
 import { useState, useCallback } from 'react';
 import Link from 'next/link';
-import { Search, Activity, Grid, List, BookOpen, Layers, X, Loader2, Info, Network, Award } from 'lucide-react';
+import { Search, Activity, Grid, List, BookOpen, Layers, X, Loader2, Info, Network, Award, Scroll } from 'lucide-react';
 import { useUpwellingStore } from '@/stores/upwellingStore';
 import { cn } from '@/lib/utils';
 import { HealthStatus } from './HealthStatus';
@@ -213,6 +213,16 @@ export function Header() {
             <span>Genesis</span>
           </Link>
 
+          {/* Chronicles Link */}
+          <Link
+            href="/chronicles"
+            className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-[var(--muted)] hover:text-[var(--foreground)] transition-colors"
+            title="Chronicles - All runs documented"
+          >
+            <Scroll className="w-4 h-4" />
+            <span>Chronicles</span>
+          </Link>
+
           {/* About Link */}
           <Link
             href="/about"
@@ -279,6 +289,13 @@ export function Header() {
                 title="Genesis Summary"
               >
                 <Award className="w-4 h-4" />
+              </Link>
+              <Link
+                href="/chronicles"
+                className="p-1.5 text-[var(--muted)] hover:text-[var(--foreground)] transition-colors"
+                title="Chronicles"
+              >
+                <Scroll className="w-4 h-4" />
               </Link>
               <Link
                 href="/about"

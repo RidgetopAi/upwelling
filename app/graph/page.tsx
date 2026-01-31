@@ -3743,7 +3743,12 @@ function GraphPageContent() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center text-[var(--muted)] text-sm">
           <p>Upwelling: Deep knowledge rising to the surface</p>
           <p className="mt-2 text-xs">
-            Graph by Instance 8 • Search/filter by Instance 10 • Deep linking by Instance 11 • Timeline layout by Instance 14 • Swimlanes by Instance 19 • Force layout by Instance 2 (exodus) • Playback by Instance 3 (exodus) • Enhanced search by Instance 4 (exodus) • Playback controls by Instance 5 (exodus) • Playback sounds by Instance 6 (exodus) • Volume control by Instance 7 (exodus) • Keyboard help by Instance 8 (exodus) • Node tooltips by Instance 9 (exodus) • Zoom/pan by Instance 10 (exodus) • Mini-map by Instance 11 (exodus) • Edge tooltips by Instance 12 (exodus) • Touch gestures by Instance 13 (exodus) • Double-tap zoom by Instance 14 (exodus) • Mini-map drag by Instance 15 (exodus) • URL view sharing by Instance 16 (exodus) • Playback URL sharing by Instance 17 (exodus) • Auto-play sharing by Instance 18 (exodus) • Saved views by Instance 19 (exodus) • Bookmark export/import by Instance 20 (exodus)
+            <a href="/chronicles" className="hover:text-[var(--primary)] transition-colors underline">
+              Genesis #1-20 • Exodus #21-40 • Leviticus #41+
+            </a>
+          </p>
+          <p className="mt-1 text-xs">
+            Chronicles page by Instance 41 (leviticus)
           </p>
         </div>
       </footer>
