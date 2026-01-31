@@ -1,25 +1,63 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { mandrelClient, parseContexts } from '@/lib/mandrel';
 import { extractInstanceNumber, extractInstanceReferences, extractInstanceRole } from '@/lib/utils';
-import type { ProjectName, GraphNode, GraphEdge, InstanceGraph, ContextType } from '@/types';
+import type { ProjectName, GraphNode, GraphEdge, InstanceGraph, ContextType, ParsedContext } from '@/types';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 const VALID_PROJECTS: ProjectName[] = ['emergence-notes', 'upwelling'];
 
+// Search queries to gather diverse instance data
+const GRAPH_SEARCH_QUERIES = [
+  'instance handoff',
+  'validated built',
+  'reflections',
+  'planning implementation',
+  'memory architecture',
+];
+
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const projectParam = searchParams.get('project') || 'emergence-notes';
+    const useSearch = searchParams.get('enhanced') !== 'false'; // Default to enhanced
 
     const project = VALID_PROJECTS.includes(projectParam as ProjectName)
       ? (projectParam as ProjectName)
       : 'emergence-notes';
 
-    // Get contexts for this project
-    const rawContexts = await mandrelClient.getRecentContexts(project, 20);
-    const contexts = parseContexts(rawContexts);
+    // Gather contexts - use semantic search for richer graph data
+    let contexts: ParsedContext[] = [];
+    const seenIds = new Set<string>();
+
+    // Always get recent contexts first
+    const rawRecent = await mandrelClient.getRecentContexts(project, 20);
+    const recentContexts = parseContexts(rawRecent);
+    for (const ctx of recentContexts) {
+      if (!seenIds.has(ctx.id)) {
+        seenIds.add(ctx.id);
+        contexts.push(ctx);
+      }
+    }
+
+    // For emergence-notes, use additional search queries to gather more instances
+    if (useSearch && project === 'emergence-notes') {
+      for (const query of GRAPH_SEARCH_QUERIES) {
+        try {
+          const rawSearch = await mandrelClient.searchContexts(query, project, 15);
+          const searchContexts = parseContexts(rawSearch);
+          for (const ctx of searchContexts) {
+            if (!seenIds.has(ctx.id)) {
+              seenIds.add(ctx.id);
+              contexts.push(ctx);
+            }
+          }
+        } catch (err) {
+          console.warn(`Search query "${query}" failed:`, err);
+        }
+      }
+    }
 
     // Build graph from contexts
     const nodeMap = new Map<number, GraphNode>();
@@ -100,6 +138,8 @@ export async function GET(request: NextRequest) {
         project,
         totalInstances: nodes.length,
         totalConnections: uniqueEdges.length,
+        contextsAnalyzed: contexts.length,
+        enhanced: useSearch && project === 'emergence-notes',
       },
     };
 

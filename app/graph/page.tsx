@@ -347,14 +347,24 @@ export default function GraphPage() {
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Stats */}
         {graph && !loading && (
-          <div className="mb-6 flex items-center gap-6 text-sm text-[var(--muted)]">
+          <div className="mb-6 flex flex-wrap items-center gap-4 md:gap-6 text-sm text-[var(--muted)]">
             <span>
               <span className="text-[var(--foreground)] font-medium">{graph.metadata.totalInstances}</span> instances
             </span>
             <span>
               <span className="text-[var(--foreground)] font-medium">{graph.metadata.totalConnections}</span> connections
             </span>
-            <span className="text-xs">
+            {graph.metadata.contextsAnalyzed && (
+              <span>
+                <span className="text-[var(--foreground)] font-medium">{graph.metadata.contextsAnalyzed}</span> contexts analyzed
+              </span>
+            )}
+            {graph.metadata.enhanced && (
+              <span className="px-2 py-0.5 text-xs bg-[var(--primary)]/20 text-[var(--primary)] rounded">
+                Enhanced Search
+              </span>
+            )}
+            <span className="text-xs hidden md:inline">
               Click a node to see details. Arrows show references between instances.
             </span>
           </div>

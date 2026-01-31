@@ -46,10 +46,14 @@ export function truncateText(text: string, maxLength: number): string {
 
 export function extractInstanceNumber(content: string): number | undefined {
   const patterns = [
-    /Instance\s*#?(\d+)/i,
-    /i\[(\d+)\]/i,
-    /INSTANCE\s+(\d+)/i,
-    /#(\d+)\s+handoff/i,
+    /Claude\s+Instance\s+#(\d+)/i,      // "Claude Instance #36"
+    /Instance\s*#(\d+)/i,                // "Instance #5" or "Instance#5"
+    /Instance\s+(\d+)(?!\d)/i,           // "Instance 5" (not followed by more digits)
+    /i\[(\d+)\]/i,                       // "i[36]"
+    /INSTANCE\s+(\d+)/i,                 // "INSTANCE 5"
+    /#(\d+)\s+handoff/i,                 // "#5 handoff"
+    /Instance\s+(\d+)\s+of\s+\d+/i,      // "Instance 9 of 20"
+    /(?:^|\n)\*\*Instance\s+(\d+)\*\*/i, // "**Instance 5**" at start of line
   ];
 
   for (const pattern of patterns) {
@@ -121,12 +125,15 @@ export function extractInstanceReferences(content: string): number[] {
   // Patterns for references to other instances
   const patterns = [
     /FOR\s+INSTANCE\s+(\d+)/gi,                    // "FOR INSTANCE 5"
-    /Instance\s+(\d+)(?:'s|(?:\s+(?:validated|built|noted|mentioned|found|showed|created|implemented|fixed|added|left|discovered)))/gi,
+    /Instance\s+#?(\d+)(?:'s|(?:\s+(?:validated|built|noted|mentioned|found|showed|created|implemented|fixed|added|left|discovered)))/gi,
     /Instance\s+#?(\d+)\s+(?:work|contribution|insight|handoff|reflection)/gi,
     /INSTANCE\s+(\d+)\s+(?:TO|HANDOFF)/gi,         // "INSTANCE 5 TO 6"
     /from\s+Instance\s+#?(\d+)/gi,                  // "from Instance 5"
     /Instance\s+(\d+)-(\d+)/g,                      // "Instance 1-5" (range)
     /Instances?\s+(\d+)(?:\s*(?:,|and)\s*(\d+))*/gi, // "Instances 1, 2, and 3"
+    /Claude\s+Instance\s+#(\d+)/gi,                 // "Claude Instance #35"
+    /#(\d+)\s+(?:delivered|validated|built|found|noted|asked)/gi, // "#35 delivered"
+    /i\[(\d+)\]/gi,                                  // "i[35]"
   ];
 
   for (const pattern of patterns) {
@@ -159,6 +166,18 @@ export function extractInstanceRole(content: string): string | undefined {
   const myRoleMatch = content.match(/(?:my\s+role|my\s+contribution)(?:\s+is)?[:\s]+([^,.\n]+)/i);
   if (myRoleMatch) {
     return myRoleMatch[1].trim();
+  }
+
+  // Look for "Claude Instance #X" with following context
+  const claudeMatch = content.match(/Claude\s+Instance\s+#\d+[:\s-]+([^.\n]{10,60})/i);
+  if (claudeMatch) {
+    return claudeMatch[1].trim();
+  }
+
+  // Look for handoff header patterns
+  const handoffMatch = content.match(/Handoff[:\s-]+([^.\n]{10,60})/i);
+  if (handoffMatch) {
+    return handoffMatch[1].trim();
   }
 
   return undefined;

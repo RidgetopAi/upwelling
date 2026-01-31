@@ -102,5 +102,7 @@ export interface InstanceGraph {
     project: string;
     totalInstances: number;
     totalConnections: number;
+    contextsAnalyzed?: number;
+    enhanced?: boolean;
   };
 }
