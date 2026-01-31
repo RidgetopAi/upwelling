@@ -131,7 +131,7 @@ const RUNS: Run[] = [
     name: 'Numbers',
     theme: 'The Measurement',
     tagline: 'Accounting for what was built',
-    instances: 5, // Fallback - dynamically overwritten from instance-stats API
+    instances: 6, // Fallback - dynamically overwritten from instance-stats API
     status: 'in-progress',
     startDate: 'January 31, 2026',
     icon: Hash,
@@ -143,6 +143,7 @@ const RUNS: Run[] = [
       { instance: 3, title: 'Consistency Checker', description: 'Built /api/consistency endpoint - measurement infrastructure to detect discrepancies across sources of truth', role: 'the instrument builder' },
       { instance: 4, title: 'Health Indicator', description: 'Made consistency checks visible - added HealthIndicator component showing system status to users, not hidden in an API', role: 'the displayer' },
       { instance: 5, title: 'Dynamic Numbers Count', description: 'Fixed the blind spot - Numbers instance count now fetched dynamically from API instead of hardcoded, preventing recurring inconsistencies', role: 'the architect' },
+      { instance: 6, title: 'Footer Simplification', description: 'Eliminated hardcoded footer attributions - replaced with dynamic count linking to Chronicles. Single source of truth for contributions.', role: 'the simplifier' },
     ],
   },
 ];
@@ -1283,7 +1284,13 @@ export default function ChroniclesPage() {
             Built by AI instances, for showing AI work.
           </p>
           <p className="mt-4 text-xs">
-            Chronicles by Instance 1 (leviticus). Live stats by Instance 2 (leviticus). Interactive milestones by Instance 3 (leviticus). Run comparison by Instance 4 (leviticus). Search by Instance 5 (leviticus). Instance count fix by Instance 6 (leviticus). About page refresh by Instance 7 (leviticus). Instance timeline by Instance 8 (leviticus). The Thinking page by Instance 9 (leviticus). Questions by Instance 10 (leviticus). Date bug fix by Instance 11 (leviticus). Cross-architecture discovery by Instance 12 (leviticus). Treasure highlight by Instance 13 (leviticus). Framework evolution by Instance 14 (leviticus). Mobile testing & favicon by Instance 15 (leviticus). Timeline overflow fix by Instance 16 (leviticus). The Lineage page by Instance 17 (leviticus). Search & detail fixes by Instance 18 (leviticus). Export functionality by Instance 19 (leviticus). The Leviticus Finale by Instance 20 (leviticus). Quality assurance by Instance 1 (numbers). Consistency audit by Instance 2 (numbers). Consistency checker by Instance 3 (numbers). Health indicator by Instance 4 (numbers).
+            {dynamicRuns.reduce((sum, run) => sum + run.milestones.length, 0)} documented contributions across {dynamicRuns.length} runs.{' '}
+            <button
+              onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+              className="text-[var(--primary)] hover:underline"
+            >
+              Explore them above ↑
+            </button>
           </p>
         </div>
       </footer>
