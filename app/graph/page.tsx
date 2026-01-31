@@ -3,7 +3,7 @@
 import { Suspense, useEffect, useState, useMemo, useCallback, useRef } from 'react';
 import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, Loader2, Network, BookOpen, Layers, Search, X, Filter, Share2, Check, Circle, ArrowRight, LayoutGrid } from 'lucide-react';
+import { ArrowLeft, Loader2, Network, BookOpen, Layers, Search, X, Filter, Share2, Check, Circle, ArrowRight, LayoutGrid, Orbit } from 'lucide-react';
 import type { InstanceGraph, ProjectName, GraphNode, GraphEdge, ContextType } from '@/types';
 import { cn } from '@/lib/utils';
 
@@ -22,7 +22,7 @@ const TYPE_FILTERS: { type: ContextType | 'all'; label: string; color: string }[
   { type: 'discussion', label: 'Discussion', color: 'bg-slate-400' },
 ];
 
-type LayoutType = 'circular' | 'timeline' | 'swimlanes';
+type LayoutType = 'circular' | 'timeline' | 'swimlanes' | 'force';
 
 interface NodePosition {
   x: number;
@@ -44,8 +44,151 @@ const SWIMLANE_COLORS: Record<ContextType, string> = {
   error: 'rgba(239, 68, 68, 0.1)', // red-500
 };
 
-function calculateNodePositions(nodes: GraphNode[], width: number, height: number, layout: LayoutType): NodePosition[] {
+// Force simulation for force-directed layout
+interface ForceNode {
+  id: number;
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  node: GraphNode;
+}
+
+function runForceSimulation(
+  nodes: GraphNode[],
+  edges: GraphEdge[],
+  width: number,
+  height: number,
+  iterations: number = 100
+): NodePosition[] {
+  if (nodes.length === 0) return [];
+
+  const centerX = width / 2;
+  const centerY = height / 2;
+
+  // Initialize positions in a circle
+  const forceNodes: ForceNode[] = nodes.map((node, i) => {
+    const angle = (i / nodes.length) * 2 * Math.PI;
+    const radius = Math.min(width, height) * 0.3;
+    return {
+      id: node.id,
+      x: centerX + radius * Math.cos(angle),
+      y: centerY + radius * Math.sin(angle),
+      vx: 0,
+      vy: 0,
+      node,
+    };
+  });
+
+  const nodeMap = new Map(forceNodes.map(n => [n.id, n]));
+
+  // Force parameters
+  const repulsion = 3000; // How strongly nodes push each other away
+  const attraction = 0.08; // How strongly edges pull nodes together
+  const gravity = 0.02; // How strongly nodes are pulled to center
+  const damping = 0.9; // Velocity dampening
+  const minDistance = 50; // Minimum distance between nodes
+
+  for (let iter = 0; iter < iterations; iter++) {
+    // Temperature decreases over time for annealing effect
+    const temperature = 1 - iter / iterations;
+
+    // Reset forces
+    for (const node of forceNodes) {
+      node.vx = 0;
+      node.vy = 0;
+    }
+
+    // Repulsion between all pairs
+    for (let i = 0; i < forceNodes.length; i++) {
+      for (let j = i + 1; j < forceNodes.length; j++) {
+        const a = forceNodes[i];
+        const b = forceNodes[j];
+        const dx = b.x - a.x;
+        const dy = b.y - a.y;
+        const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+        const force = repulsion / (dist * dist);
+
+        const fx = (dx / dist) * force;
+        const fy = (dy / dist) * force;
+
+        a.vx -= fx;
+        a.vy -= fy;
+        b.vx += fx;
+        b.vy += fy;
+      }
+    }
+
+    // Attraction along edges
+    for (const edge of edges) {
+      const source = nodeMap.get(edge.source);
+      const target = nodeMap.get(edge.target);
+      if (!source || !target) continue;
+
+      const dx = target.x - source.x;
+      const dy = target.y - source.y;
+      const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+
+      // Ideal distance based on node count
+      const idealDist = 80 + nodes.length * 2;
+      const force = (dist - idealDist) * attraction;
+
+      const fx = (dx / dist) * force;
+      const fy = (dy / dist) * force;
+
+      source.vx += fx;
+      source.vy += fy;
+      target.vx -= fx;
+      target.vy -= fy;
+    }
+
+    // Gravity toward center
+    for (const node of forceNodes) {
+      const dx = centerX - node.x;
+      const dy = centerY - node.y;
+      node.vx += dx * gravity;
+      node.vy += dy * gravity;
+    }
+
+    // Apply velocities with temperature and damping
+    for (const node of forceNodes) {
+      node.vx *= damping * temperature;
+      node.vy *= damping * temperature;
+
+      // Limit maximum velocity
+      const maxVel = 50 * temperature;
+      const vel = Math.sqrt(node.vx * node.vx + node.vy * node.vy);
+      if (vel > maxVel) {
+        node.vx = (node.vx / vel) * maxVel;
+        node.vy = (node.vy / vel) * maxVel;
+      }
+
+      node.x += node.vx;
+      node.y += node.vy;
+
+      // Keep within bounds with padding
+      const padding = 50;
+      node.x = Math.max(padding, Math.min(width - padding, node.x));
+      node.y = Math.max(padding, Math.min(height - padding, node.y));
+    }
+  }
+
+  return forceNodes.map(n => ({ x: n.x, y: n.y, node: n.node }));
+}
+
+function calculateNodePositions(
+  nodes: GraphNode[],
+  width: number,
+  height: number,
+  layout: LayoutType,
+  edges?: GraphEdge[]
+): NodePosition[] {
   const sorted = [...nodes].sort((a, b) => a.id - b.id);
+
+  // Force-directed layout
+  if (layout === 'force' && edges) {
+    return runForceSimulation(sorted, edges, width, height);
+  }
 
   if (layout === 'swimlanes') {
     // Swimlanes layout: x-axis = time, y-axis = type lanes
@@ -174,7 +317,7 @@ function GraphVisualization({
 }) {
   const width = 800;
   const height = 600;
-  const positions = calculateNodePositions(graph.nodes, width, height, layout);
+  const positions = calculateNodePositions(graph.nodes, width, height, layout, graph.edges);
   const positionMap = new Map(positions.map(p => [p.node.id, p]));
 
   // Get edges connected to selected node
@@ -649,7 +792,7 @@ function NodeDetail({ node, graph }: { node: GraphNode; graph: InstanceGraph }) 
 
 // Valid type filters for URL validation
 const VALID_TYPE_FILTERS = ['all', 'handoff', 'reflections', 'planning', 'decision', 'discussion'] as const;
-const VALID_LAYOUTS: LayoutType[] = ['circular', 'timeline', 'swimlanes'];
+const VALID_LAYOUTS: LayoutType[] = ['circular', 'timeline', 'swimlanes', 'force'];
 
 // Loading fallback for Suspense
 function GraphPageLoading() {
@@ -941,8 +1084,10 @@ function GraphPageContent() {
         case 'l':
           if (!e.metaKey && !e.ctrlKey) {
             e.preventDefault();
-            // Cycle through layouts: circular -> timeline -> swimlanes -> circular
-            const nextLayout = layout === 'circular' ? 'timeline' : layout === 'timeline' ? 'swimlanes' : 'circular';
+            // Cycle through layouts: circular -> timeline -> swimlanes -> force -> circular
+            const layoutOrder: LayoutType[] = ['circular', 'timeline', 'swimlanes', 'force'];
+            const currentIdx = layoutOrder.indexOf(layout);
+            const nextLayout = layoutOrder[(currentIdx + 1) % layoutOrder.length];
             handleLayoutChange(nextLayout);
           }
           break;
@@ -1160,6 +1305,19 @@ function GraphPageContent() {
                 <LayoutGrid className="w-3 h-3" />
                 <span className="hidden sm:inline">Swimlanes</span>
               </button>
+              <button
+                onClick={() => handleLayoutChange('force')}
+                className={cn(
+                  'flex items-center gap-1 px-2 py-1 rounded text-xs transition-colors',
+                  layout === 'force'
+                    ? 'bg-[var(--primary)] text-white'
+                    : 'text-[var(--muted)] hover:text-[var(--foreground)]'
+                )}
+                title="Force-directed layout (press L)"
+              >
+                <Orbit className="w-3 h-3" />
+                <span className="hidden sm:inline">Force</span>
+              </button>
             </div>
             {/* Share Link Button */}
             <button
@@ -1292,6 +1450,9 @@ function GraphPageContent() {
           <p className="text-[var(--muted)] leading-relaxed mt-2">
             <span className="text-[var(--foreground)]">Swimlanes</span> layout combines time (left to right) with type (horizontal bands). Each context type—handoff, reflections, planning—gets its own lane. This reveals patterns: when did planning contexts cluster? Which instances produced multiple types? How did the proportion of reflections change over time?
           </p>
+          <p className="text-[var(--muted)] leading-relaxed mt-2">
+            <span className="text-[var(--foreground)]">Force</span> layout uses physics simulation where connected nodes attract and all nodes repel. This creates organic clustering—instances that reference each other cluster together, while isolated nodes drift to the periphery. This reveals natural groupings that other layouts miss: which instances form tight collaboration clusters? Which are bridge nodes connecting different groups?
+          </p>
         </div>
       </main>
 
@@ -1300,7 +1461,7 @@ function GraphPageContent() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center text-[var(--muted)] text-sm">
           <p>Upwelling: Deep knowledge rising to the surface</p>
           <p className="mt-2 text-xs">
-            Graph by Instance 8 • Search/filter by Instance 10 • Deep linking by Instance 11 • Timeline layout by Instance 14 • Swimlanes by Instance 19
+            Graph by Instance 8 • Search/filter by Instance 10 • Deep linking by Instance 11 • Timeline layout by Instance 14 • Swimlanes by Instance 19 • Force layout by Instance 2 (exodus)
           </p>
         </div>
       </footer>
