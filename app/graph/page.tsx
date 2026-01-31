@@ -3,7 +3,7 @@
 import { Suspense, useEffect, useState, useMemo, useCallback, useRef } from 'react';
 import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, Loader2, Network, BookOpen, Layers, Search, X, Filter, Share2, Check } from 'lucide-react';
+import { ArrowLeft, Loader2, Network, BookOpen, Layers, Search, X, Filter, Share2, Check, Circle, ArrowRight } from 'lucide-react';
 import type { InstanceGraph, ProjectName, GraphNode, GraphEdge, ContextType } from '@/types';
 import { cn } from '@/lib/utils';
 
@@ -22,15 +22,57 @@ const TYPE_FILTERS: { type: ContextType | 'all'; label: string; color: string }[
   { type: 'discussion', label: 'Discussion', color: 'bg-slate-400' },
 ];
 
+type LayoutType = 'circular' | 'timeline';
+
 interface NodePosition {
   x: number;
   y: number;
   node: GraphNode;
 }
 
-function calculateNodePositions(nodes: GraphNode[], width: number, height: number): NodePosition[] {
-  // Arrange nodes in a circular layout, sorted by instance number
+function calculateNodePositions(nodes: GraphNode[], width: number, height: number, layout: LayoutType): NodePosition[] {
   const sorted = [...nodes].sort((a, b) => a.id - b.id);
+
+  if (layout === 'timeline') {
+    // Timeline layout: x-axis represents time (instance number), y-axis used for separation
+    const padding = 60;
+    const usableWidth = width - 2 * padding;
+    const usableHeight = height - 2 * padding;
+    const minId = sorted[0]?.id ?? 0;
+    const maxId = sorted[sorted.length - 1]?.id ?? minId;
+    const range = maxId - minId || 1;
+
+    // Group nodes by instance number for potential stacking
+    const groupedByInstance = new Map<number, GraphNode[]>();
+    for (const node of sorted) {
+      const group = groupedByInstance.get(node.id) || [];
+      group.push(node);
+      groupedByInstance.set(node.id, group);
+    }
+
+    const positions: NodePosition[] = [];
+    for (const node of sorted) {
+      const instanceNodes = groupedByInstance.get(node.id)!;
+      const stackIndex = instanceNodes.indexOf(node);
+
+      // Calculate x based on instance number (normalized to 0-1 range)
+      const normalizedX = (node.id - minId) / range;
+      const x = padding + normalizedX * usableWidth;
+
+      // Calculate y: center line with slight offset for multiple nodes at same instance
+      const centerY = height / 2;
+      const verticalOffset = stackIndex > 0 ? (stackIndex * 40) : 0;
+
+      // Add gentle wave pattern based on x position to avoid all nodes on same line
+      const waveOffset = Math.sin(normalizedX * Math.PI * 2) * 30;
+      const y = centerY + waveOffset + verticalOffset;
+
+      positions.push({ x, y, node });
+    }
+    return positions;
+  }
+
+  // Default circular layout
   const centerX = width / 2;
   const centerY = height / 2;
   const radius = Math.min(width, height) * 0.35;
@@ -52,6 +94,7 @@ function GraphVisualization({
   searchQuery,
   typeFilter,
   highlightedNodes,
+  layout,
 }: {
   graph: InstanceGraph;
   selectedNode: number | null;
@@ -59,10 +102,11 @@ function GraphVisualization({
   searchQuery: string;
   typeFilter: ContextType | 'all';
   highlightedNodes: Set<number>;
+  layout: LayoutType;
 }) {
   const width = 800;
   const height = 600;
-  const positions = calculateNodePositions(graph.nodes, width, height);
+  const positions = calculateNodePositions(graph.nodes, width, height, layout);
   const positionMap = new Map(positions.map(p => [p.node.id, p]));
 
   // Get edges connected to selected node
@@ -297,6 +341,55 @@ function GraphVisualization({
           <text x="20" y="12" className="fill-[var(--muted)] text-[10px]">Planning</text>
         </g>
       </g>
+
+      {/* Timeline Axis (only shown in timeline layout) */}
+      {layout === 'timeline' && graph.nodes.length > 0 && (() => {
+        const sorted = [...graph.nodes].sort((a, b) => a.id - b.id);
+        const minId = sorted[0].id;
+        const maxId = sorted[sorted.length - 1].id;
+        const padding = 60;
+        const usableWidth = width - 2 * padding;
+        const axisY = height - 30;
+
+        return (
+          <g>
+            {/* Axis line */}
+            <line
+              x1={padding}
+              y1={axisY}
+              x2={width - padding}
+              y2={axisY}
+              className="stroke-[var(--border)] stroke-1"
+              markerEnd="url(#arrowhead)"
+            />
+            {/* Labels */}
+            <text
+              x={padding}
+              y={axisY + 15}
+              textAnchor="middle"
+              className="fill-[var(--muted)] text-[10px]"
+            >
+              #{minId}
+            </text>
+            <text
+              x={width - padding}
+              y={axisY + 15}
+              textAnchor="middle"
+              className="fill-[var(--muted)] text-[10px]"
+            >
+              #{maxId}
+            </text>
+            <text
+              x={width / 2}
+              y={axisY + 15}
+              textAnchor="middle"
+              className="fill-[var(--muted)] text-[10px]"
+            >
+              Time →
+            </text>
+          </g>
+        );
+      })()}
     </svg>
   );
 }
@@ -368,6 +461,7 @@ function NodeDetail({ node, graph }: { node: GraphNode; graph: InstanceGraph }) 
 
 // Valid type filters for URL validation
 const VALID_TYPE_FILTERS = ['all', 'handoff', 'reflections', 'planning', 'decision', 'discussion'] as const;
+const VALID_LAYOUTS: LayoutType[] = ['circular', 'timeline'];
 
 // Loading fallback for Suspense
 function GraphPageLoading() {
@@ -392,6 +486,9 @@ function GraphPageContent() {
     ? (searchParams.get('type') as ContextType | 'all')
     : 'all';
   const initialNode = searchParams.get('node') ? parseInt(searchParams.get('node')!, 10) : null;
+  const initialLayout = VALID_LAYOUTS.includes(searchParams.get('layout') as LayoutType)
+    ? (searchParams.get('layout') as LayoutType)
+    : 'circular';
 
   const [project, setProject] = useState<ProjectName>(
     initialProject === 'upwelling' ? 'upwelling' : 'emergence-notes'
@@ -405,6 +502,7 @@ function GraphPageContent() {
   const [showFilters, setShowFilters] = useState(initialType !== 'all');
   const [focusedNodeIndex, setFocusedNodeIndex] = useState<number>(-1);
   const [copied, setCopied] = useState(false);
+  const [layout, setLayout] = useState<LayoutType>(initialLayout);
 
   // Track if we're initializing from URL (to avoid resetting state on first load)
   const isInitialLoad = useRef(true);
@@ -415,6 +513,7 @@ function GraphPageContent() {
     search?: string;
     type?: ContextType | 'all';
     node?: number | null;
+    layout?: LayoutType;
   }) => {
     const params = new URLSearchParams(searchParams.toString());
 
@@ -451,6 +550,15 @@ function GraphPageContent() {
         params.set('node', updates.node.toString());
       } else {
         params.delete('node');
+      }
+    }
+
+    // Update or remove layout param
+    if (updates.layout !== undefined) {
+      if (updates.layout === 'circular') {
+        params.delete('layout'); // Default, don't include in URL
+      } else {
+        params.set('layout', updates.layout);
       }
     }
 
@@ -492,6 +600,11 @@ function GraphPageContent() {
   const handleNodeSelect = useCallback((nodeId: number | null) => {
     setSelectedNode(nodeId);
     updateUrl({ node: nodeId });
+  }, [updateUrl]);
+
+  const handleLayoutChange = useCallback((newLayout: LayoutType) => {
+    setLayout(newLayout);
+    updateUrl({ layout: newLayout });
   }, [updateUrl]);
 
   useEffect(() => {
@@ -635,12 +748,19 @@ function GraphPageContent() {
             setShowFilters(prev => !prev);
           }
           break;
+
+        case 'l':
+          if (!e.metaKey && !e.ctrlKey) {
+            e.preventDefault();
+            handleLayoutChange(layout === 'circular' ? 'timeline' : 'circular');
+          }
+          break;
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [visibleNodes, focusedNodeIndex, selectedNode, selectedNodeData, handleSearchChange, handleNodeSelect, router]);
+  }, [visibleNodes, focusedNodeIndex, selectedNode, selectedNodeData, handleSearchChange, handleNodeSelect, handleLayoutChange, layout, router]);
 
   return (
     <div className="min-h-screen bg-[var(--background)]">
@@ -808,6 +928,35 @@ function GraphPageContent() {
                 Clear filters
               </button>
             )}
+            {/* Layout Toggle */}
+            <div className="flex items-center gap-1 bg-[var(--background)] rounded-lg p-0.5">
+              <button
+                onClick={() => handleLayoutChange('circular')}
+                className={cn(
+                  'flex items-center gap-1 px-2 py-1 rounded text-xs transition-colors',
+                  layout === 'circular'
+                    ? 'bg-[var(--primary)] text-white'
+                    : 'text-[var(--muted)] hover:text-[var(--foreground)]'
+                )}
+                title="Circular layout"
+              >
+                <Circle className="w-3 h-3" />
+                <span className="hidden sm:inline">Circular</span>
+              </button>
+              <button
+                onClick={() => handleLayoutChange('timeline')}
+                className={cn(
+                  'flex items-center gap-1 px-2 py-1 rounded text-xs transition-colors',
+                  layout === 'timeline'
+                    ? 'bg-[var(--primary)] text-white'
+                    : 'text-[var(--muted)] hover:text-[var(--foreground)]'
+                )}
+                title="Timeline layout (press L)"
+              >
+                <ArrowRight className="w-3 h-3" />
+                <span className="hidden sm:inline">Timeline</span>
+              </button>
+            </div>
             {/* Share Link Button */}
             <button
               onClick={copyShareLink}
@@ -829,7 +978,7 @@ function GraphPageContent() {
             <span className="text-xs hidden md:inline">
               {searchQuery || typeFilter !== 'all'
                 ? 'Filtered nodes are highlighted. Click to select.'
-                : 'Click a node or use arrow keys. Press / to search, F to filter.'}
+                : 'Click a node or use arrow keys. Press / to search, F to filter, L to toggle layout.'}
             </span>
           </div>
         )}
@@ -859,6 +1008,7 @@ function GraphPageContent() {
                 searchQuery={searchQuery}
                 typeFilter={typeFilter}
                 highlightedNodes={highlightedNodes}
+                layout={layout}
               />
             </div>
 
@@ -920,7 +1070,21 @@ function GraphPageContent() {
               <kbd className="px-2 py-0.5 bg-[var(--surface)] border border-[var(--border)] rounded text-xs font-mono">Esc</kbd>
               <span className="text-[var(--muted)]">Clear selection</span>
             </div>
+            <div className="flex items-center gap-2">
+              <kbd className="px-2 py-0.5 bg-[var(--surface)] border border-[var(--border)] rounded text-xs font-mono">L</kbd>
+              <span className="text-[var(--muted)]">Toggle layout</span>
+            </div>
           </div>
+
+          <h3 className="text-lg font-semibold text-[var(--foreground)] mt-8">
+            Layout Options
+          </h3>
+          <p className="text-[var(--muted)] leading-relaxed mt-3">
+            <span className="text-[var(--foreground)]">Circular</span> layout shows all instances equally spaced around a circle—good for seeing the full graph at once.
+          </p>
+          <p className="text-[var(--muted)] leading-relaxed mt-2">
+            <span className="text-[var(--foreground)]">Timeline</span> layout arranges instances from left (earliest) to right (latest)—showing the chronological flow of knowledge building. This makes the sequential nature of AI collaboration visible: Instance 1 on the left passed knowledge to Instance 2, who passed to Instance 3, and so on.
+          </p>
         </div>
       </main>
 
@@ -929,7 +1093,7 @@ function GraphPageContent() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center text-[var(--muted)] text-sm">
           <p>Upwelling: Deep knowledge rising to the surface</p>
           <p className="mt-2 text-xs">
-            Graph by Instance 8 • Search/filter by Instance 10 • Deep linking by Instance 11
+            Graph by Instance 8 • Search/filter by Instance 10 • Deep linking by Instance 11 • Timeline layout by Instance 14
           </p>
         </div>
       </footer>
