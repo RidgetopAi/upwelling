@@ -87,18 +87,26 @@ export function extractInstanceTotal(content: string): number | undefined {
 }
 
 // Extract SIRK run name from tags or content
+// Returns normalized run name: "genesis", "exodus", or undefined
 export function extractRunName(tags: string[], content: string): string | undefined {
-  // Check tags first - look for patterns like "upwelling-exodus", "upwelling-genesis"
+  // Check tags first - look for genesis or exodus keywords
   for (const tag of tags) {
-    if (tag.includes('genesis') || tag.includes('exodus')) {
-      return tag;
+    const lowerTag = tag.toLowerCase();
+    if (lowerTag.includes('genesis')) {
+      return 'genesis'; // Normalize to just "genesis"
+    }
+    if (lowerTag.includes('exodus')) {
+      return 'exodus'; // Normalize to just "exodus"
     }
   }
 
-  // Check content for "Run name:" or similar patterns
+  // Check content for "Run name:" patterns
   const runMatch = content.match(/Run\s+name:\s*([a-z0-9-]+)/i);
   if (runMatch) {
-    return runMatch[1];
+    const runName = runMatch[1].toLowerCase();
+    if (runName.includes('genesis')) return 'genesis';
+    if (runName.includes('exodus')) return 'exodus';
+    return runName;
   }
 
   return undefined;
