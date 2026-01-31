@@ -32,21 +32,27 @@ export async function GET() {
 
     // Extract unique instance numbers from leviticus contexts
     // Contexts have tags like "instance-6, upwelling-leviticus"
+    // We ONLY use tags to determine instance numbers, as tags are authoritative
     const leviticusInstances = new Set<number>();
 
     for (const ctx of leviticusContexts) {
-      // Check tags for instance-N pattern
+      // Only use tags that indicate this is a leviticus context
+      const hasLeviticusTag = ctx.tags.some(
+        (tag) => tag === 'upwelling-leviticus' || tag.includes('leviticus')
+      );
+
+      if (!hasLeviticusTag) continue;
+
+      // Check tags for instance-N pattern (these are leviticus-specific numbers)
       for (const tag of ctx.tags) {
         const match = tag.match(/^instance-(\d+)$/);
         if (match) {
-          leviticusInstances.add(parseInt(match[1], 10));
+          const instanceNum = parseInt(match[1], 10);
+          // Leviticus instance numbers are 1-20 (not the 41+ overall numbers)
+          if (instanceNum <= 20) {
+            leviticusInstances.add(instanceNum);
+          }
         }
-      }
-
-      // Also check content for "Instance N (leviticus)" pattern
-      const contentMatch = ctx.content.match(/Instance\s+(\d+)\s+\(leviticus\)/i);
-      if (contentMatch) {
-        leviticusInstances.add(parseInt(contentMatch[1], 10));
       }
     }
 
