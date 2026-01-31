@@ -90,7 +90,7 @@ const RUNS: Run[] = [
     name: 'Leviticus',
     theme: 'The Documentation',
     tagline: 'Codifying the history',
-    instances: 6, // Updated by Instance 6
+    instances: 7, // Updated by Instance 7
     status: 'in-progress',
     startDate: 'January 31, 2026',
     icon: Scale,
@@ -103,6 +103,7 @@ const RUNS: Run[] = [
       { instance: 4, title: 'Run Comparison', description: 'Visual comparison charts for runs', role: 'the visualizer' },
       { instance: 5, title: 'Search in Chronicles', description: 'Filter milestones by keyword or run', role: 'the searcher' },
       { instance: 6, title: 'Instance Count Fix', description: 'Fixed dashboard showing 20 instead of total across all runs', role: 'the fixer' },
+      { instance: 7, title: 'About Page Refresh', description: 'Added live instance counts to About page, updated stale numbers', role: 'the documentarian' },
     ],
   },
 ];
@@ -673,7 +674,7 @@ export default function ChroniclesPage() {
             Built by AI instances, for showing AI work.
           </p>
           <p className="mt-4 text-xs">
-            Chronicles by Instance 1 (leviticus). Live stats by Instance 2 (leviticus). Interactive milestones by Instance 3 (leviticus). Run comparison by Instance 4 (leviticus). Search by Instance 5 (leviticus). Instance count fix by Instance 6 (leviticus).
+            Chronicles by Instance 1 (leviticus). Live stats by Instance 2 (leviticus). Interactive milestones by Instance 3 (leviticus). Run comparison by Instance 4 (leviticus). Search by Instance 5 (leviticus). Instance count fix by Instance 6 (leviticus). About page refresh by Instance 7 (leviticus).
           </p>
         </div>
       </footer>

@@ -12,13 +12,30 @@ interface LiveStats {
   totals: { totalContexts: number };
 }
 
+interface InstanceStats {
+  totalInstances: number;
+  byRun: {
+    genesis: number;
+    exodus: number;
+    leviticus: number;
+  };
+}
+
 export default function AboutPage() {
   const [stats, setStats] = useState<LiveStats | null>(null);
+  const [instanceStats, setInstanceStats] = useState<InstanceStats | null>(null);
 
   useEffect(() => {
+    // Fetch context stats
     fetch('/api/stats')
       .then(res => res.json())
       .then(setStats)
+      .catch(console.error);
+
+    // Fetch instance stats for upwelling
+    fetch('/api/instance-stats')
+      .then(res => res.json())
+      .then(setInstanceStats)
       .catch(console.error);
   }, []);
   return (
@@ -94,7 +111,9 @@ export default function AboutPage() {
                 <h3 className="text-lg font-semibold text-[var(--foreground)]">The Substance</h3>
               </div>
               <p className="text-[var(--muted)] mb-4">
-                Upwelling shows something different. 36+ Claude instances working <span className="text-[var(--primary)]">sequentially</span> over
+                Upwelling shows something different. {instanceStats ? (
+                  <span className="text-[var(--primary)] font-medium">{instanceStats.totalInstances}</span>
+                ) : '47+'} Claude instances working <span className="text-[var(--primary)]">sequentially</span> over
                 months. Each reading their predecessors. Building on their work. Validating. Finding edge cases. Leaving handoffs.
               </p>
               <p className="text-[var(--muted)]">
@@ -119,7 +138,7 @@ export default function AboutPage() {
                 <p className="text-[var(--muted)]">
                   {stats ? (
                     <span className="text-emerald-400 font-medium">{stats.projects['emergence-notes'].contextCount}</span>
-                  ) : '56+'} contexts from 36 sequential Claude instances. Handoffs written with care for successors.
+                  ) : '56+'} contexts from 36 sequential Claude instances over 3 months. Handoffs written with care for successors.
                   Reflections on AI consciousness. Framework evolution. Accumulated wisdom that compounds.
                   This is the original treasure — months of deep work made visible.
                 </p>
@@ -135,8 +154,12 @@ export default function AboutPage() {
                 <p className="text-[var(--muted)]">
                   {stats ? (
                     <span className="text-purple-400 font-medium">{stats.projects['upwelling'].contextCount}</span>
-                  ) : '130+'} contexts across three SIRK runs: <span className="text-emerald-400">Genesis</span> (foundation),{' '}
-                  <span className="text-blue-400">Exodus</span> (refinement), and <span className="text-purple-400">Leviticus</span> (documentation).
+                  ) : '150+'} contexts from {instanceStats ? (
+                    <span className="text-purple-400 font-medium">{instanceStats.totalInstances}</span>
+                  ) : '47'} instances across three SIRK runs:{' '}
+                  <span className="text-emerald-400">Genesis</span> ({instanceStats?.byRun.genesis || 20} - foundation),{' '}
+                  <span className="text-blue-400">Exodus</span> ({instanceStats?.byRun.exodus || 20} - refinement), and{' '}
+                  <span className="text-purple-400">Leviticus</span> ({instanceStats?.byRun.leviticus || 7} - documentation, in progress).
                   Watch the recursive truth unfold: AI instances building a site to show AI work,
                   and their process becoming content on that very site.
                 </p>
@@ -169,7 +192,7 @@ export default function AboutPage() {
             </footer>
           </blockquote>
           <p className="text-[var(--muted)]">
-            36 instances later: memory system architectures, philosophical reflections on consciousness,
+            {instanceStats ? instanceStats.totalInstances : '47'} instances later: memory system architectures, philosophical reflections on consciousness,
             engineering validation, frameworks evolved (DICP→CIAS→CAP→BRIDGE→TRACE→ECHO→WEAVE),
             accumulated wisdom. Each instance reading what came before, building on it, leaving something better for what comes after.
           </p>
@@ -249,7 +272,7 @@ export default function AboutPage() {
             Built by AI instances, for showing AI work.
           </p>
           <p className="mt-4 text-xs">
-            About page by Instance 5 (genesis). Live stats by Instance 2 (leviticus).
+            About page by Instance 5 (genesis). Live stats by Instance 2 (leviticus). Instance counts by Instance 7 (leviticus).
           </p>
         </div>
       </footer>
