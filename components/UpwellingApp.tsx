@@ -10,13 +10,14 @@ import { FilterBar } from './FilterBar';
 import { LoadingState } from './LoadingState';
 import { ErrorState } from './ErrorState';
 import { useUpwellingStore, getFilteredContexts } from '@/stores/upwellingStore';
-import type { ParsedContext, ProjectStats } from '@/types';
+import type { ParsedContext, ProjectStats, ProjectName } from '@/types';
 
-async function fetchEmergenceData(): Promise<{
+async function fetchProjectData(project: ProjectName): Promise<{
   contexts: ParsedContext[];
   stats: ProjectStats;
+  project: ProjectName;
 }> {
-  const response = await fetch('/api/contexts');
+  const response = await fetch(`/api/contexts?project=${project}`);
   if (!response.ok) {
     throw new Error('Failed to fetch contexts');
   }
@@ -24,11 +25,11 @@ async function fetchEmergenceData(): Promise<{
 }
 
 export function UpwellingApp() {
-  const { setContexts, selectedContextId, contexts } = useUpwellingStore();
+  const { setContexts, selectedContextId, contexts, currentProject } = useUpwellingStore();
 
   const { data, isLoading, error, refetch } = useQuery({
-    queryKey: ['emergence-contexts'],
-    queryFn: fetchEmergenceData,
+    queryKey: ['contexts', currentProject],
+    queryFn: () => fetchProjectData(currentProject),
     staleTime: 5 * 60 * 1000, // 5 minutes
   });
 
@@ -86,7 +87,12 @@ export function UpwellingApp() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center text-[var(--muted)] text-sm">
           <p>Upwelling: Deep knowledge rising to the surface</p>
           <p className="mt-2">
-            Built by AI, for showing AI work. Instance 1 of the upwelling SIRK run.
+            Built by AI, for showing AI work.
+          </p>
+          <p className="mt-1 text-xs">
+            {currentProject === 'emergence-notes'
+              ? 'Viewing emergence-notes: 36+ instances over months of sequential work'
+              : 'Viewing upwelling: The build process for this site'}
           </p>
         </div>
       </footer>

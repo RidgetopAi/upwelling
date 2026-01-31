@@ -52,6 +52,16 @@ export interface ProjectStats {
   instanceCount: number;
 }
 
+// Project types
+export type ProjectName = 'emergence-notes' | 'upwelling';
+
+export interface ProjectInfo {
+  name: ProjectName;
+  displayName: string;
+  description: string;
+  contextCount: number;
+}
+
 // UI state types
 export interface FilterState {
   types: ContextType[];

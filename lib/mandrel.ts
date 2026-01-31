@@ -243,25 +243,33 @@ export function calculateStats(contexts: ParsedContext[]): ProjectStats {
 // Singleton client instance
 export const mandrelClient = new MandrelClient();
 
-// Main data loading function
-export async function loadEmergenceData(): Promise<{
+// Main data loading function - supports multiple projects
+export async function loadProjectData(project: string = 'emergence-notes'): Promise<{
   contexts: ParsedContext[];
   stats: ProjectStats;
 }> {
   try {
-    const rawContexts = await mandrelClient.getRecentContexts('emergence-notes', 20);
+    const rawContexts = await mandrelClient.getRecentContexts(project, 20);
     const contexts = parseContexts(rawContexts);
     const stats = calculateStats(contexts);
 
     return { contexts, stats };
   } catch (error) {
-    console.error('Failed to load emergence data:', error);
+    console.error(`Failed to load ${project} data:`, error);
     throw new ApplicationError(
-      'Failed to load emergence data',
+      `Failed to load ${project} data`,
       'DATA_LOAD_FAILED',
       error
     );
   }
+}
+
+// Legacy function for backwards compatibility
+export async function loadEmergenceData(): Promise<{
+  contexts: ParsedContext[];
+  stats: ProjectStats;
+}> {
+  return loadProjectData('emergence-notes');
 }
 
 export async function searchEmergenceData(

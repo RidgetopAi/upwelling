@@ -1,9 +1,12 @@
 'use client';
 
 import { create } from 'zustand';
-import type { ContextType, FilterState, ViewState, ParsedContext } from '@/types';
+import type { ContextType, FilterState, ViewState, ParsedContext, ProjectName } from '@/types';
 
 interface UpwellingState {
+  // Project state
+  currentProject: ProjectName;
+
   // View state
   view: ViewState['view'];
   selectedContextId: string | null;
@@ -16,6 +19,7 @@ interface UpwellingState {
   contexts: ParsedContext[];
 
   // Actions
+  setProject: (project: ProjectName) => void;
   setView: (view: ViewState['view']) => void;
   selectContext: (id: string | null) => void;
   toggleExpanded: (id: string) => void;
@@ -34,6 +38,7 @@ const initialFilters: FilterState = {
 
 export const useUpwellingStore = create<UpwellingState>((set) => ({
   // Initial state
+  currentProject: 'emergence-notes',
   view: 'timeline',
   selectedContextId: null,
   expandedContextIds: new Set(),
@@ -41,6 +46,12 @@ export const useUpwellingStore = create<UpwellingState>((set) => ({
   contexts: [],
 
   // Actions
+  setProject: (project) => set({
+    currentProject: project,
+    selectedContextId: null,
+    expandedContextIds: new Set(),
+    contexts: [],
+  }),
   setView: (view) => set({ view }),
 
   selectContext: (id) => set({ selectedContextId: id }),

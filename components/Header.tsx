@@ -1,11 +1,25 @@
 'use client';
 
-import { Search, Activity, Grid, List } from 'lucide-react';
+import { Search, Activity, Grid, List, BookOpen, Layers } from 'lucide-react';
 import { useUpwellingStore } from '@/stores/upwellingStore';
 import { cn } from '@/lib/utils';
+import type { ProjectName } from '@/types';
+
+const PROJECT_INFO: Record<ProjectName, { icon: typeof BookOpen; label: string; description: string }> = {
+  'emergence-notes': {
+    icon: BookOpen,
+    label: 'Emergence Notes',
+    description: '56+ contexts from 36 instances',
+  },
+  'upwelling': {
+    icon: Layers,
+    label: 'Upwelling Build',
+    description: 'Building this site',
+  },
+};
 
 export function Header() {
-  const { view, setView, filters, setSearchQuery } = useUpwellingStore();
+  const { view, setView, filters, setSearchQuery, currentProject, setProject } = useUpwellingStore();
 
   return (
     <header className="border-b border-[var(--border)] bg-[var(--surface)]">
@@ -24,6 +38,30 @@ export function Header() {
                 Deep knowledge rising
               </p>
             </div>
+          </div>
+
+          {/* Project Switcher */}
+          <div className="flex items-center gap-1 bg-[var(--background)] rounded-lg p-1">
+            {(Object.keys(PROJECT_INFO) as ProjectName[]).map((project) => {
+              const info = PROJECT_INFO[project];
+              const Icon = info.icon;
+              return (
+                <button
+                  key={project}
+                  onClick={() => setProject(project)}
+                  className={cn(
+                    'flex items-center gap-2 px-3 py-1.5 rounded-md transition-colors text-sm',
+                    currentProject === project
+                      ? 'bg-[var(--primary)] text-white'
+                      : 'text-[var(--muted)] hover:text-[var(--foreground)]'
+                  )}
+                  title={info.description}
+                >
+                  <Icon className="w-4 h-4" />
+                  <span className="hidden sm:inline">{info.label}</span>
+                </button>
+              );
+            })}
           </div>
 
           {/* Search */}
