@@ -304,6 +304,14 @@ interface HoverInfo {
   y: number;
 }
 
+interface EdgeHoverInfo {
+  edge: GraphEdge;
+  sourceNode: GraphNode;
+  targetNode: GraphNode;
+  x: number; // midpoint x
+  y: number; // midpoint y
+}
+
 interface ZoomPanState {
   scale: number;
   translateX: number;
@@ -315,6 +323,7 @@ function GraphVisualization({
   selectedNode,
   onNodeClick,
   onNodeHover,
+  onEdgeHover,
   searchQuery,
   typeFilter,
   highlightedNodes,
@@ -328,6 +337,7 @@ function GraphVisualization({
   selectedNode: number | null;
   onNodeClick: (id: number | null) => void;
   onNodeHover: (info: HoverInfo | null) => void;
+  onEdgeHover: (info: EdgeHoverInfo | null) => void;
   searchQuery: string;
   typeFilter: ContextType | 'all';
   highlightedNodes: Set<number>;
@@ -520,8 +530,31 @@ function GraphVisualization({
         const isActive = selectedNode !== null && (edge.source === selectedNode || edge.target === selectedNode);
         const isFromSelected = edge.source === selectedNode;
 
+        // Calculate midpoint for tooltip positioning
+        const midX = (source.x + target.x) / 2;
+        const midY = (source.y + target.y) / 2;
+
         return (
-          <g key={i}>
+          <g
+            key={i}
+            className="cursor-pointer"
+            onMouseEnter={() => {
+              if (sourceNode && targetNode) {
+                onEdgeHover({ edge, sourceNode, targetNode, x: midX, y: midY });
+              }
+            }}
+            onMouseLeave={() => onEdgeHover(null)}
+          >
+            {/* Invisible wider hit area for easier hovering */}
+            <line
+              x1={source.x}
+              y1={source.y}
+              x2={target.x}
+              y2={target.y}
+              stroke="transparent"
+              strokeWidth={12}
+              className="pointer-events-stroke"
+            />
             {/* Base line */}
             <line
               x1={source.x}
@@ -529,7 +562,7 @@ function GraphVisualization({
               x2={target.x}
               y2={target.y}
               className={cn(
-                'transition-all duration-300',
+                'transition-all duration-300 pointer-events-none',
                 isActive
                   ? isFromSelected
                     ? 'stroke-[var(--primary)] stroke-2'
@@ -547,7 +580,7 @@ function GraphVisualization({
                 x2={target.x}
                 y2={target.y}
                 className={cn(
-                  'stroke-2',
+                  'stroke-2 pointer-events-none',
                   isFromSelected ? 'stroke-[var(--primary)]' : 'stroke-cyan-500'
                 )}
                 strokeDasharray="5 5"
@@ -982,6 +1015,89 @@ function NodeTooltip({ hoverInfo, svgRef }: { hoverInfo: HoverInfo | null; svgRe
   );
 }
 
+// Edge Tooltip Component - shows relationship between instances on hover
+function EdgeTooltip({ edgeHoverInfo, svgRef }: { edgeHoverInfo: EdgeHoverInfo | null; svgRef: React.RefObject<SVGSVGElement | null> }) {
+  if (!edgeHoverInfo || !svgRef.current) return null;
+
+  const { edge, sourceNode, targetNode, x, y } = edgeHoverInfo;
+
+  // Convert SVG coordinates to screen coordinates
+  const svg = svgRef.current;
+  const svgRect = svg.getBoundingClientRect();
+  const viewBox = svg.viewBox.baseVal;
+
+  // Calculate scale factor
+  const scaleX = svgRect.width / viewBox.width;
+  const scaleY = svgRect.height / viewBox.height;
+
+  // Convert SVG position to screen position
+  const screenX = svgRect.left + x * scaleX;
+  const screenY = svgRect.top + y * scaleY;
+
+  // Position tooltip above the edge midpoint
+  const tooltipOffsetY = -60;
+
+  // Edge type descriptions and colors
+  const edgeTypeInfo: Record<GraphEdge['type'], { label: string; description: string; color: string }> = {
+    'references': {
+      label: 'References',
+      description: 'cites or mentions',
+      color: 'bg-slate-500',
+    },
+    'builds_on': {
+      label: 'Builds On',
+      description: 'extends or continues work from',
+      color: 'bg-green-500',
+    },
+    'validates': {
+      label: 'Validates',
+      description: 'confirms or verifies',
+      color: 'bg-amber-500',
+    },
+  };
+
+  const typeInfo = edgeTypeInfo[edge.type] || edgeTypeInfo['references'];
+
+  return (
+    <div
+      className="fixed z-40 pointer-events-none animate-in fade-in zoom-in-95 duration-150"
+      style={{
+        left: screenX,
+        top: screenY + tooltipOffsetY,
+        transform: 'translateX(-50%)',
+      }}
+    >
+      <div className="bg-[var(--surface)] border border-[var(--border)] rounded-lg shadow-xl px-3 py-2 min-w-[180px]">
+        {/* Connection header */}
+        <div className="flex items-center justify-center gap-2 mb-1.5">
+          <span className="text-sm font-semibold text-[var(--foreground)]">
+            #{sourceNode.id}
+          </span>
+          <ArrowRight className="w-4 h-4 text-[var(--muted)]" />
+          <span className="text-sm font-semibold text-[var(--foreground)]">
+            #{targetNode.id}
+          </span>
+        </div>
+
+        {/* Relationship type badge */}
+        <div className="flex items-center justify-center mb-1.5">
+          <span className={cn(
+            'px-2 py-0.5 text-[10px] font-medium text-white rounded',
+            typeInfo.color
+          )}>
+            {typeInfo.label}
+          </span>
+        </div>
+
+        {/* Description */}
+        <p className="text-xs text-[var(--muted)] text-center leading-tight">
+          Instance {sourceNode.id} {typeInfo.description} Instance {targetNode.id}
+        </p>
+      </div>
+    </div>
+  );
+}
+
 // MiniMap Component - shows overview of full graph with viewport indicator
 function MiniMap({
   graph,
@@ -1326,6 +1442,7 @@ function GraphPageContent() {
   const [showShortcutHelp, setShowShortcutHelp] = useState(false);
   const [showMiniMap, setShowMiniMap] = useState(true); // Mini-map visible by default
   const [hoverInfo, setHoverInfo] = useState<HoverInfo | null>(null);
+  const [edgeHoverInfo, setEdgeHoverInfo] = useState<EdgeHoverInfo | null>(null);
   const svgRef = useRef<SVGSVGElement | null>(null);
 
   // Zoom and pan state
@@ -2294,6 +2411,7 @@ function GraphPageContent() {
                 selectedNode={selectedNode}
                 onNodeClick={handleNodeSelect}
                 onNodeHover={setHoverInfo}
+                onEdgeHover={setEdgeHoverInfo}
                 searchQuery={searchQuery}
                 typeFilter={typeFilter}
                 highlightedNodes={highlightedNodes}
@@ -2304,6 +2422,7 @@ function GraphPageContent() {
                 onZoomPan={setZoomPan}
               />
               <NodeTooltip hoverInfo={hoverInfo} svgRef={svgRef} />
+              <EdgeTooltip edgeHoverInfo={edgeHoverInfo} svgRef={svgRef} />
               <MiniMap
                 graph={graph}
                 layout={layout}
@@ -2342,6 +2461,9 @@ function GraphPageContent() {
           </p>
           <p className="text-[var(--muted)] leading-relaxed mt-2">
             <span className="text-[var(--primary)]">Blue arrows</span> show outgoing references (what this instance cited). <span className="text-cyan-500">Cyan arrows</span> show incoming references (who cited this instance).
+          </p>
+          <p className="text-[var(--muted)] leading-relaxed mt-2">
+            <span className="text-[var(--foreground)]">Hover over edges:</span> Move your mouse over any connection line to see what relationship it represents. Edge types include <span className="text-green-500">builds on</span> (extends work), <span className="text-amber-500">validates</span> (confirms discoveries), and <span className="text-slate-400">references</span> (cites or mentions).
           </p>
 
           <h3 className="text-lg font-semibold text-[var(--foreground)] mt-8">
@@ -2512,7 +2634,7 @@ function GraphPageContent() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center text-[var(--muted)] text-sm">
           <p>Upwelling: Deep knowledge rising to the surface</p>
           <p className="mt-2 text-xs">
-            Graph by Instance 8 • Search/filter by Instance 10 • Deep linking by Instance 11 • Timeline layout by Instance 14 • Swimlanes by Instance 19 • Force layout by Instance 2 (exodus) • Playback by Instance 3 (exodus) • Enhanced search by Instance 4 (exodus) • Playback controls by Instance 5 (exodus) • Playback sounds by Instance 6 (exodus) • Volume control by Instance 7 (exodus) • Keyboard help by Instance 8 (exodus) • Node tooltips by Instance 9 (exodus) • Zoom/pan by Instance 10 (exodus) • Mini-map by Instance 11 (exodus)
+            Graph by Instance 8 • Search/filter by Instance 10 • Deep linking by Instance 11 • Timeline layout by Instance 14 • Swimlanes by Instance 19 • Force layout by Instance 2 (exodus) • Playback by Instance 3 (exodus) • Enhanced search by Instance 4 (exodus) • Playback controls by Instance 5 (exodus) • Playback sounds by Instance 6 (exodus) • Volume control by Instance 7 (exodus) • Keyboard help by Instance 8 (exodus) • Node tooltips by Instance 9 (exodus) • Zoom/pan by Instance 10 (exodus) • Mini-map by Instance 11 (exodus) • Edge tooltips by Instance 12 (exodus)
           </p>
         </div>
       </footer>
