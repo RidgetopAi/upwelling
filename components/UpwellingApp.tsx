@@ -354,7 +354,7 @@ export function UpwellingApp() {
           </p>
           <p className="mt-2 text-xs">
             <a href="/chronicles" className="hover:text-[var(--primary)] transition-colors underline">
-              Genesis: 20 instances • Exodus: 20 instances • Leviticus: in progress
+              Genesis: 20 instances • Exodus: 20 instances • Leviticus: 20 instances • Numbers: in progress
             </a>
           </p>
         </div>

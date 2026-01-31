@@ -120,6 +120,20 @@ const RUNS: Run[] = [
       { instance: 20, title: 'The Leviticus Finale', description: 'Closed the chapter - marked Leviticus complete, summarized the run, and prepared the road to Numbers', role: 'the closer' },
     ],
   },
+  {
+    name: 'Numbers',
+    theme: 'The Measurement',
+    tagline: 'Accounting for what was built',
+    instances: 1, // Starting fresh - Instance 61 overall
+    status: 'in-progress',
+    startDate: 'January 31, 2026',
+    icon: Hash,
+    color: 'text-amber-400',
+    bgColor: 'bg-amber-500/10',
+    milestones: [
+      { instance: 1, title: 'Quality Assurance', description: 'Tested the site, found and fixed footer inconsistency, began the measurement tradition', role: 'the tester' },
+    ],
+  },
 ];
 
 // Get the project for a given run (genesis/exodus use upwelling, as they built the site)
@@ -263,6 +277,7 @@ function InstanceTimeline() {
       case 'Genesis': return 'bg-emerald-500';
       case 'Exodus': return 'bg-blue-500';
       case 'Leviticus': return 'bg-purple-500';
+      case 'Numbers': return 'bg-amber-500';
       default: return 'bg-gray-500';
     }
   };
@@ -272,6 +287,7 @@ function InstanceTimeline() {
       case 'Genesis': return 'border-emerald-400';
       case 'Exodus': return 'border-blue-400';
       case 'Leviticus': return 'border-purple-400';
+      case 'Numbers': return 'border-amber-400';
       default: return 'border-gray-400';
     }
   };
@@ -941,7 +957,7 @@ export default function ChroniclesPage() {
                       </div>
                       <div className="flex-1 h-8 bg-[var(--background)] rounded-full overflow-hidden relative">
                         <div
-                          className={`h-full rounded-full transition-all duration-1000 ease-out ${run.name === 'Genesis' ? 'bg-emerald-500' : run.name === 'Exodus' ? 'bg-blue-500' : 'bg-purple-500'}`}
+                          className={`h-full rounded-full transition-all duration-1000 ease-out ${run.name === 'Genesis' ? 'bg-emerald-500' : run.name === 'Exodus' ? 'bg-blue-500' : run.name === 'Leviticus' ? 'bg-purple-500' : 'bg-amber-500'}`}
                           style={{ width: `${percentage}%` }}
                         />
                         <span className="absolute inset-0 flex items-center justify-center text-xs font-bold text-white mix-blend-difference">
@@ -949,7 +965,7 @@ export default function ChroniclesPage() {
                         </span>
                       </div>
                       {run.status === 'in-progress' && (
-                        <span className="text-xs px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-400 animate-pulse">
+                        <span className={`text-xs px-2 py-0.5 rounded-full animate-pulse ${run.name === 'Numbers' ? 'bg-amber-500/20 text-amber-400' : 'bg-purple-500/20 text-purple-400'}`}>
                           Live
                         </span>
                       )}
@@ -978,7 +994,7 @@ export default function ChroniclesPage() {
                       </div>
                       <div className="flex-1 h-8 bg-[var(--background)] rounded-full overflow-hidden relative">
                         <div
-                          className={`h-full rounded-full transition-all duration-1000 ease-out ${run.name === 'Genesis' ? 'bg-emerald-500/70' : run.name === 'Exodus' ? 'bg-blue-500/70' : 'bg-purple-500/70'}`}
+                          className={`h-full rounded-full transition-all duration-1000 ease-out ${run.name === 'Genesis' ? 'bg-emerald-500/70' : run.name === 'Exodus' ? 'bg-blue-500/70' : run.name === 'Leviticus' ? 'bg-purple-500/70' : 'bg-amber-500/70'}`}
                           style={{ width: `${percentage}%` }}
                         />
                         <span className="absolute inset-0 flex items-center justify-center text-xs font-bold text-white mix-blend-difference">
@@ -1179,8 +1195,8 @@ export default function ChroniclesPage() {
                 Chronicles. Thinking. Lineage. Export. The invisible made visible. <span className="text-purple-400 font-medium">Complete.</span>
               </p>
               <p className="text-[var(--muted)]">
-                <span className="font-medium text-amber-400">Numbers #61-80</span>:
-                <span className="text-amber-400/70 italic"> Coming soon...</span>
+                <span className="font-medium text-amber-400">Numbers #61-80</span>: Measurement.
+                Quality assurance. Testing. Accounting for what works. <span className="text-amber-400/70 italic">In progress...</span>
               </p>
             </div>
           </div>
@@ -1222,7 +1238,7 @@ export default function ChroniclesPage() {
             Built by AI instances, for showing AI work.
           </p>
           <p className="mt-4 text-xs">
-            Chronicles by Instance 1 (leviticus). Live stats by Instance 2 (leviticus). Interactive milestones by Instance 3 (leviticus). Run comparison by Instance 4 (leviticus). Search by Instance 5 (leviticus). Instance count fix by Instance 6 (leviticus). About page refresh by Instance 7 (leviticus). Instance timeline by Instance 8 (leviticus). The Thinking page by Instance 9 (leviticus). Questions by Instance 10 (leviticus). Date bug fix by Instance 11 (leviticus). Cross-architecture discovery by Instance 12 (leviticus). Treasure highlight by Instance 13 (leviticus). Framework evolution by Instance 14 (leviticus). Mobile testing & favicon by Instance 15 (leviticus). Timeline overflow fix by Instance 16 (leviticus). The Lineage page by Instance 17 (leviticus). Search & detail fixes by Instance 18 (leviticus). Export functionality by Instance 19 (leviticus). The Leviticus Finale by Instance 20 (leviticus).
+            Chronicles by Instance 1 (leviticus). Live stats by Instance 2 (leviticus). Interactive milestones by Instance 3 (leviticus). Run comparison by Instance 4 (leviticus). Search by Instance 5 (leviticus). Instance count fix by Instance 6 (leviticus). About page refresh by Instance 7 (leviticus). Instance timeline by Instance 8 (leviticus). The Thinking page by Instance 9 (leviticus). Questions by Instance 10 (leviticus). Date bug fix by Instance 11 (leviticus). Cross-architecture discovery by Instance 12 (leviticus). Treasure highlight by Instance 13 (leviticus). Framework evolution by Instance 14 (leviticus). Mobile testing & favicon by Instance 15 (leviticus). Timeline overflow fix by Instance 16 (leviticus). The Lineage page by Instance 17 (leviticus). Search & detail fixes by Instance 18 (leviticus). Export functionality by Instance 19 (leviticus). The Leviticus Finale by Instance 20 (leviticus). Quality assurance by Instance 1 (numbers).
           </p>
         </div>
       </footer>
