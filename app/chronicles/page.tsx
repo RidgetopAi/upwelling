@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Activity, ArrowLeft, Scroll, Layers, BookOpen, Hammer, Scale, ChevronRight, Hash, Calendar, GitCommit, Database, RefreshCw, ExternalLink, Users, BarChart3, Target, Flag, Search, X } from 'lucide-react';
+import { Activity, ArrowLeft, Scroll, Layers, BookOpen, Hammer, Scale, ChevronRight, Hash, Calendar, GitCommit, Database, RefreshCw, ExternalLink, Users, BarChart3, Target, Flag, Search, X, Clock } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
 // Live stats from Mandrel
@@ -90,7 +90,7 @@ const RUNS: Run[] = [
     name: 'Leviticus',
     theme: 'The Documentation',
     tagline: 'Codifying the history',
-    instances: 7, // Updated by Instance 7
+    instances: 8, // Updated by Instance 8
     status: 'in-progress',
     startDate: 'January 31, 2026',
     icon: Scale,
@@ -104,6 +104,7 @@ const RUNS: Run[] = [
       { instance: 5, title: 'Search in Chronicles', description: 'Filter milestones by keyword or run', role: 'the searcher' },
       { instance: 6, title: 'Instance Count Fix', description: 'Fixed dashboard showing 20 instead of total across all runs', role: 'the fixer' },
       { instance: 7, title: 'About Page Refresh', description: 'Added live instance counts to About page, updated stale numbers', role: 'the documentarian' },
+      { instance: 8, title: 'Instance Timeline', description: 'Visual timeline of all 48 instances across three runs', role: 'the timekeeper' },
     ],
   },
 ];
@@ -206,6 +207,207 @@ function RunSection({ run, runIndex, filteredMilestones }: { run: Run; runIndex:
             </div>
           </button>
         ))}
+      </div>
+    </section>
+  );
+}
+
+// Instance Timeline Component - visualizes all instances across runs
+function InstanceTimeline() {
+  const router = useRouter();
+  const totalInstances = RUNS.reduce((sum, run) => sum + run.instances, 0);
+
+  // Generate all instance nodes
+  const generateInstanceNodes = () => {
+    const nodes: { instanceNum: number; globalNum: number; run: Run; milestone?: RunMilestone }[] = [];
+    let globalCounter = 0;
+
+    RUNS.forEach((run) => {
+      for (let i = 1; i <= run.instances; i++) {
+        globalCounter++;
+        const milestone = run.milestones.find(m => m.instance === i);
+        nodes.push({
+          instanceNum: i,
+          globalNum: globalCounter,
+          run,
+          milestone,
+        });
+      }
+    });
+
+    return nodes;
+  };
+
+  const nodes = generateInstanceNodes();
+
+  const handleNodeClick = (node: { instanceNum: number; run: Run }) => {
+    const search = getInstanceSearchQuery(node.run.name, node.instanceNum);
+    router.push(`/graph?project=upwelling&search=${encodeURIComponent(search)}`);
+  };
+
+  const getRunColor = (runName: string) => {
+    switch (runName) {
+      case 'Genesis': return 'bg-emerald-500';
+      case 'Exodus': return 'bg-blue-500';
+      case 'Leviticus': return 'bg-purple-500';
+      default: return 'bg-gray-500';
+    }
+  };
+
+  const getRunBorderColor = (runName: string) => {
+    switch (runName) {
+      case 'Genesis': return 'border-emerald-400';
+      case 'Exodus': return 'border-blue-400';
+      case 'Leviticus': return 'border-purple-400';
+      default: return 'border-gray-400';
+    }
+  };
+
+  return (
+    <section className="mb-16">
+      <div className="flex items-center gap-3 mb-6">
+        <Clock className="w-6 h-6 text-[var(--primary)]" />
+        <h2 className="text-2xl font-bold text-[var(--foreground)]">Instance Timeline</h2>
+        <span className="text-sm text-[var(--muted)] ml-2">
+          {totalInstances} instances across {RUNS.length} runs
+        </span>
+      </div>
+
+      <div className="bg-[var(--surface)] rounded-lg p-6 border border-[var(--border)]">
+        <p className="text-sm text-[var(--muted)] mb-6">
+          Each node represents one AI instance. Click any node to explore that instance&apos;s contexts.
+          Highlighted nodes indicate documented milestones.
+        </p>
+
+        {/* Scrollable timeline container */}
+        <div className="overflow-x-auto pb-4">
+          <div className="min-w-max">
+            {/* Run labels */}
+            <div className="flex items-center mb-4">
+              {RUNS.map((run, index) => {
+                const prevInstances = RUNS.slice(0, index).reduce((sum, r) => sum + r.instances, 0);
+                const Icon = run.icon;
+                return (
+                  <div
+                    key={run.name}
+                    className="flex items-center"
+                    style={{ width: `${run.instances * 40}px` }}
+                  >
+                    <div className={`flex items-center gap-1.5 px-2 py-1 rounded-full ${run.bgColor} ${run.color} text-xs font-medium`}>
+                      <Icon className="w-3 h-3" />
+                      {run.name}
+                      {run.status === 'in-progress' && (
+                        <span className="w-1.5 h-1.5 rounded-full bg-current animate-pulse" />
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Timeline track */}
+            <div className="relative">
+              {/* Connecting line */}
+              <div className="absolute top-1/2 left-4 right-4 h-0.5 bg-[var(--border)] -translate-y-1/2" />
+
+              {/* Run divider lines */}
+              {RUNS.slice(0, -1).map((run, index) => {
+                const prevInstances = RUNS.slice(0, index + 1).reduce((sum, r) => sum + r.instances, 0);
+                return (
+                  <div
+                    key={`divider-${run.name}`}
+                    className="absolute top-0 bottom-0 w-px bg-[var(--border)]"
+                    style={{ left: `${prevInstances * 40 - 4}px` }}
+                  />
+                );
+              })}
+
+              {/* Instance nodes */}
+              <div className="flex items-center relative z-10">
+                {nodes.map((node) => {
+                  const hasMilestone = !!node.milestone;
+                  const isLive = node.run.status === 'in-progress' && node.instanceNum === node.run.instances;
+
+                  return (
+                    <div
+                      key={node.globalNum}
+                      className="relative group"
+                      style={{ width: '40px' }}
+                    >
+                      <button
+                        onClick={() => handleNodeClick(node)}
+                        className={`
+                          w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold
+                          transition-all duration-200 hover:scale-110 hover:z-20
+                          ${hasMilestone
+                            ? `${getRunColor(node.run.name)} text-white shadow-lg ring-2 ring-white/20`
+                            : `bg-[var(--background)] border-2 ${getRunBorderColor(node.run.name)} text-[var(--muted)] hover:text-[var(--foreground)]`
+                          }
+                          ${isLive ? 'animate-pulse ring-2 ring-purple-400/50' : ''}
+                        `}
+                      >
+                        {node.instanceNum}
+                      </button>
+
+                      {/* Tooltip */}
+                      <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-30">
+                        <div className="bg-[var(--foreground)] text-[var(--background)] text-xs rounded-lg px-3 py-2 whitespace-nowrap shadow-xl">
+                          <div className="font-bold">#{node.globalNum} - {node.run.name} i[{node.instanceNum}]</div>
+                          {node.milestone && (
+                            <>
+                              <div className="text-[var(--muted-foreground)] mt-1">{node.milestone.title}</div>
+                              {node.milestone.role && (
+                                <div className="text-[var(--primary)] mt-0.5">{node.milestone.role}</div>
+                              )}
+                            </>
+                          )}
+                          {!node.milestone && (
+                            <div className="text-[var(--muted-foreground)] mt-1">No milestone documented</div>
+                          )}
+                        </div>
+                        {/* Tooltip arrow */}
+                        <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-[var(--foreground)]" />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Global instance numbers row */}
+            <div className="flex items-center mt-3">
+              {nodes.filter((_, i) => i % 5 === 0 || i === nodes.length - 1).map((node) => (
+                <div
+                  key={`label-${node.globalNum}`}
+                  className="text-xs text-[var(--muted)]"
+                  style={{
+                    position: 'absolute',
+                    left: `${(node.globalNum - 1) * 40 + 16}px`,
+                    transform: 'translateX(-50%)',
+                  }}
+                >
+                  #{node.globalNum}
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Legend */}
+        <div className="flex flex-wrap items-center gap-4 mt-6 pt-4 border-t border-[var(--border)] text-xs text-[var(--muted)]">
+          <div className="flex items-center gap-2">
+            <div className="w-4 h-4 rounded-full bg-emerald-500" />
+            <span>Documented milestone</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="w-4 h-4 rounded-full bg-[var(--background)] border-2 border-emerald-400" />
+            <span>Instance (no milestone)</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="w-4 h-4 rounded-full bg-purple-500 animate-pulse" />
+            <span>Current instance</span>
+          </div>
+        </div>
       </div>
     </section>
   );
@@ -617,6 +819,9 @@ export default function ChroniclesPage() {
           </div>
         </section>
 
+        {/* Instance Timeline */}
+        <InstanceTimeline />
+
         {/* The Numbers */}
         <section className="mb-16">
           <h2 className="text-2xl font-bold text-[var(--foreground)] mb-6">The Numbers</h2>
@@ -674,7 +879,7 @@ export default function ChroniclesPage() {
             Built by AI instances, for showing AI work.
           </p>
           <p className="mt-4 text-xs">
-            Chronicles by Instance 1 (leviticus). Live stats by Instance 2 (leviticus). Interactive milestones by Instance 3 (leviticus). Run comparison by Instance 4 (leviticus). Search by Instance 5 (leviticus). Instance count fix by Instance 6 (leviticus). About page refresh by Instance 7 (leviticus).
+            Chronicles by Instance 1 (leviticus). Live stats by Instance 2 (leviticus). Interactive milestones by Instance 3 (leviticus). Run comparison by Instance 4 (leviticus). Search by Instance 5 (leviticus). Instance count fix by Instance 6 (leviticus). About page refresh by Instance 7 (leviticus). Instance timeline by Instance 8 (leviticus).
           </p>
         </div>
       </footer>
