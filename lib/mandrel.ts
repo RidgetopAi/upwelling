@@ -5,6 +5,8 @@ import type { MandrelContext, ParsedContext, ProjectStats } from '@/types';
 import {
   ApplicationError,
   extractInstanceNumber,
+  extractInstanceTotal,
+  extractRunName,
   extractTitle,
   extractFrameworks,
   extractKeyInsights,
@@ -229,9 +231,12 @@ export function parseContexts(contexts: MandrelContext[]): ParsedContext[] {
 export function calculateStats(contexts: ParsedContext[]): ProjectStats {
   const contextsByType: Record<string, number> = {};
   const allFrameworks = new Set<string>();
-  let instanceCount = 0;
+  const uniqueInstanceNumbers = new Set<number>();
   let earliest = new Date();
   let latest = new Date(0);
+
+  // Track run totals - "Instance X of Y" tells us Y instances in that run
+  const runTotals = new Map<string, number>(); // run name -> total instances
 
   for (const ctx of contexts) {
     // Count by type
@@ -242,15 +247,41 @@ export function calculateStats(contexts: ParsedContext[]): ProjectStats {
       allFrameworks.add(f);
     }
 
-    // Track instance numbers
-    if (ctx.instanceNumber !== undefined && ctx.instanceNumber > instanceCount) {
-      instanceCount = ctx.instanceNumber;
+    // Track unique instance numbers we've seen
+    if (ctx.instanceNumber !== undefined) {
+      uniqueInstanceNumbers.add(ctx.instanceNumber);
+    }
+
+    // Extract run totals from "Instance X of Y" patterns
+    const runTotal = extractInstanceTotal(ctx.content);
+    if (runTotal) {
+      const runName = extractRunName(ctx.tags, ctx.content) || 'default';
+      // Keep the highest total we see for each run
+      if (!runTotals.has(runName) || runTotal > runTotals.get(runName)!) {
+        runTotals.set(runName, runTotal);
+      }
     }
 
     // Track date range
     const date = new Date(ctx.created_at);
     if (date < earliest) earliest = date;
     if (date > latest) latest = date;
+  }
+
+  // Calculate total instances:
+  // If we have run totals (from "X of Y" patterns), sum them up
+  // Otherwise fall back to count of unique instance numbers we found
+  let instanceCount = 0;
+  if (runTotals.size > 0) {
+    // Sum up all run totals
+    for (const total of runTotals.values()) {
+      instanceCount += total;
+    }
+  } else {
+    // Fallback: use max instance number found (old behavior)
+    instanceCount = uniqueInstanceNumbers.size > 0
+      ? Math.max(...uniqueInstanceNumbers)
+      : 0;
   }
 
   return {

@@ -66,6 +66,44 @@ export function extractInstanceNumber(content: string): number | undefined {
   return undefined;
 }
 
+// Extract total instance count from "Instance X of Y" patterns
+// This gives us the accurate total for a SIRK run, not just what's loaded
+export function extractInstanceTotal(content: string): number | undefined {
+  // Pattern: "Instance X of Y" where Y is the total
+  const patterns = [
+    /Instance\s+\d+\s+of\s+(\d+)/i,        // "Instance 9 of 20"
+    /Instance:\s*\d+\s+of\s+(\d+)/i,       // "Instance: 9 of 20"
+    /i\[\d+\]\s+of\s+(\d+)/i,              // "i[9] of 20"
+  ];
+
+  for (const pattern of patterns) {
+    const match = content.match(pattern);
+    if (match) {
+      return parseInt(match[1], 10);
+    }
+  }
+
+  return undefined;
+}
+
+// Extract SIRK run name from tags or content
+export function extractRunName(tags: string[], content: string): string | undefined {
+  // Check tags first - look for patterns like "upwelling-exodus", "upwelling-genesis"
+  for (const tag of tags) {
+    if (tag.includes('genesis') || tag.includes('exodus')) {
+      return tag;
+    }
+  }
+
+  // Check content for "Run name:" or similar patterns
+  const runMatch = content.match(/Run\s+name:\s*([a-z0-9-]+)/i);
+  if (runMatch) {
+    return runMatch[1];
+  }
+
+  return undefined;
+}
+
 export function extractTitle(content: string): string {
   // Look for markdown headers
   const headerMatch = content.match(/^#+\s*(.+)$/m);

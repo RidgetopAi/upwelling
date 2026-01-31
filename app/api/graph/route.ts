@@ -8,13 +8,22 @@ export const revalidate = 0;
 
 const VALID_PROJECTS: ProjectName[] = ['emergence-notes', 'upwelling'];
 
-// Search queries to gather diverse instance data
-const GRAPH_SEARCH_QUERIES = [
+// Search queries to gather diverse instance data for emergence-notes
+const EMERGENCE_SEARCH_QUERIES = [
   'instance handoff',
   'validated built',
   'reflections',
   'planning implementation',
   'memory architecture',
+];
+
+// Search queries for upwelling project
+const UPWELLING_SEARCH_QUERIES = [
+  'instance handoff',
+  'genesis exodus',
+  'reflections',
+  'planning',
+  'feature implementation',
 ];
 
 export async function GET(request: NextRequest) {
@@ -41,9 +50,13 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // For emergence-notes, use additional search queries to gather more instances
-    if (useSearch && project === 'emergence-notes') {
-      for (const query of GRAPH_SEARCH_QUERIES) {
+    // Use additional search queries to gather more instances for both projects
+    if (useSearch) {
+      const queries = project === 'emergence-notes'
+        ? EMERGENCE_SEARCH_QUERIES
+        : UPWELLING_SEARCH_QUERIES;
+
+      for (const query of queries) {
         try {
           const rawSearch = await mandrelClient.searchContexts(query, project, 15);
           const searchContexts = parseContexts(rawSearch);
@@ -139,7 +152,7 @@ export async function GET(request: NextRequest) {
         totalInstances: nodes.length,
         totalConnections: uniqueEdges.length,
         contextsAnalyzed: contexts.length,
-        enhanced: useSearch && project === 'emergence-notes',
+        enhanced: useSearch,
       },
     };
 
