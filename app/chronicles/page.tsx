@@ -144,6 +144,7 @@ const RUNS: Run[] = [
       { instance: 4, title: 'Health Indicator', description: 'Made consistency checks visible - added HealthIndicator component showing system status to users, not hidden in an API', role: 'the displayer' },
       { instance: 5, title: 'Dynamic Numbers Count', description: 'Fixed the blind spot - Numbers instance count now fetched dynamically from API instead of hardcoded, preventing recurring inconsistencies', role: 'the architect' },
       { instance: 6, title: 'Footer Simplification', description: 'Eliminated hardcoded footer attributions - replaced with dynamic count linking to Chronicles. Single source of truth for contributions.', role: 'the simplifier' },
+      { instance: 7, title: 'Cross-Architecture Link Fix', description: 'Fixed broken About page link to cross-architecture dialogues. Added URL search parameter support so users can explore the treasure.', role: 'the diagnostician' },
     ],
   },
 ];
