@@ -2,7 +2,7 @@
 
 import { useState, useCallback } from 'react';
 import Link from 'next/link';
-import { Search, Activity, Grid, List, BookOpen, Layers, X, Loader2, Info, Network, Award, Scroll, Lightbulb } from 'lucide-react';
+import { Search, Activity, Grid, List, BookOpen, Layers, X, Loader2, Info, Network, Award, Scroll, Lightbulb, GitCommit } from 'lucide-react';
 import { useUpwellingStore } from '@/stores/upwellingStore';
 import { cn } from '@/lib/utils';
 import { HealthStatus } from './HealthStatus';
@@ -233,6 +233,16 @@ export function Header() {
             <span>Thinking</span>
           </Link>
 
+          {/* Lineage Link */}
+          <Link
+            href="/lineage"
+            className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-[var(--muted)] hover:text-[var(--foreground)] transition-colors"
+            title="The Lineage - Follow the handoff chain"
+          >
+            <GitCommit className="w-4 h-4" />
+            <span>Lineage</span>
+          </Link>
+
           {/* About Link */}
           <Link
             href="/about"
@@ -313,6 +323,13 @@ export function Header() {
                 title="The Thinking"
               >
                 <Lightbulb className="w-4 h-4" />
+              </Link>
+              <Link
+                href="/lineage"
+                className="p-1.5 text-[var(--muted)] hover:text-[var(--foreground)] transition-colors"
+                title="The Lineage"
+              >
+                <GitCommit className="w-4 h-4" />
               </Link>
               <Link
                 href="/about"
