@@ -1,6 +1,6 @@
 'use client';
 
-import { ChevronRight, Hash, Clock, Tag } from 'lucide-react';
+import { ChevronRight, Hash, Clock, Tag, Sparkles } from 'lucide-react';
 import { useUpwellingStore } from '@/stores/upwellingStore';
 import { cn, formatRelativeTime, truncateText } from '@/lib/utils';
 import type { ParsedContext } from '@/types';
@@ -115,6 +115,12 @@ function TimelineItem({
                 <Clock className="w-3 h-3" />
                 {formatRelativeTime(context.created_at)}
               </span>
+              {context.similarity !== undefined && (
+                <span className="text-xs text-[var(--primary)] flex items-center gap-1 font-medium">
+                  <Sparkles className="w-3 h-3" />
+                  {context.similarity.toFixed(1)}% match
+                </span>
+              )}
             </div>
             <h3 className="mt-2 font-medium text-[var(--foreground)] line-clamp-1">
               {context.title}
@@ -218,8 +224,14 @@ function ContextCard({ context, isSelected, onSelect }: ContextCardProps) {
       <p className="mt-2 text-sm text-[var(--muted)] line-clamp-3">
         {truncateText(context.content, 150)}
       </p>
-      <div className="mt-3 text-xs text-[var(--muted)]">
-        {context.wordCount} words
+      <div className="mt-3 text-xs text-[var(--muted)] flex items-center justify-between">
+        <span>{context.wordCount} words</span>
+        {context.similarity !== undefined && (
+          <span className="text-[var(--primary)] flex items-center gap-1">
+            <Sparkles className="w-3 h-3" />
+            {context.similarity.toFixed(1)}%
+          </span>
+        )}
       </div>
     </div>
   );

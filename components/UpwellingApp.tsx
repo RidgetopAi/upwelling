@@ -24,13 +24,37 @@ async function fetchProjectData(project: ProjectName): Promise<{
   return response.json();
 }
 
+async function fetchProjectInfo(project: ProjectName): Promise<{
+  contextCount: number;
+}> {
+  const response = await fetch(`/api/project-info?project=${project}`);
+  if (!response.ok) {
+    throw new Error('Failed to fetch project info');
+  }
+  return response.json();
+}
+
 export function UpwellingApp() {
-  const { setContexts, selectedContextId, contexts, currentProject } = useUpwellingStore();
+  const {
+    setContexts,
+    selectedContextId,
+    contexts,
+    currentProject,
+    searchResults,
+    searchQuery,
+    isSearching,
+  } = useUpwellingStore();
 
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: ['contexts', currentProject],
     queryFn: () => fetchProjectData(currentProject),
     staleTime: 5 * 60 * 1000, // 5 minutes
+  });
+
+  const { data: projectInfo } = useQuery({
+    queryKey: ['projectInfo', currentProject],
+    queryFn: () => fetchProjectInfo(currentProject),
+    staleTime: 10 * 60 * 1000, // 10 minutes
   });
 
   // Update store when data loads
@@ -40,8 +64,11 @@ export function UpwellingApp() {
     }
   }, [data, setContexts]);
 
-  // Get filtered contexts from store
-  const filteredContexts = getFilteredContexts(useUpwellingStore.getState());
+  // Get filtered contexts from store (applies to non-search results)
+  const storeState = useUpwellingStore.getState();
+  const filteredContexts = searchResults !== null
+    ? searchResults
+    : getFilteredContexts(storeState);
 
   if (isLoading) {
     return <LoadingState />;
@@ -61,16 +88,45 @@ export function UpwellingApp() {
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Stats Overview */}
-        {data?.stats && <StatsPanel stats={data.stats} />}
+        {data?.stats && (
+          <StatsPanel
+            stats={data.stats}
+            projectTotalContexts={projectInfo?.contextCount}
+            currentProject={currentProject}
+          />
+        )}
 
         {/* Filters */}
         <FilterBar />
+
+        {/* Search Results Indicator */}
+        {searchResults !== null && (
+          <div className="mt-6 flex items-center gap-3 px-4 py-3 bg-[var(--surface)] border border-[var(--border)] rounded-lg">
+            <span className="text-[var(--primary)] font-medium">
+              Semantic Search Results
+            </span>
+            <span className="text-[var(--muted)]">
+              {searchResults.length} matches for "{searchQuery}"
+            </span>
+            {searchResults.length > 0 && searchResults[0].similarity && (
+              <span className="text-xs text-[var(--muted)] ml-auto">
+                Sorted by relevance
+              </span>
+            )}
+          </div>
+        )}
 
         {/* Main Content Area */}
         <div className="mt-8 grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Timeline / List */}
           <div className={selectedContext ? 'lg:col-span-2' : 'lg:col-span-3'}>
-            <Timeline contexts={filteredContexts} />
+            {isSearching ? (
+              <div className="flex items-center justify-center py-12">
+                <div className="text-[var(--muted)]">Searching Mandrel...</div>
+              </div>
+            ) : (
+              <Timeline contexts={filteredContexts} />
+            )}
           </div>
 
           {/* Detail Panel */}

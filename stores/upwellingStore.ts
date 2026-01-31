@@ -15,6 +15,11 @@ interface UpwellingState {
   // Filter state
   filters: FilterState;
 
+  // Search state
+  isSearching: boolean;
+  searchResults: ParsedContext[] | null;
+  searchQuery: string;
+
   // Cached data
   contexts: ParsedContext[];
 
@@ -28,6 +33,9 @@ interface UpwellingState {
   toggleFrameworkFilter: (framework: string) => void;
   clearFilters: () => void;
   setContexts: (contexts: ParsedContext[]) => void;
+  setSearchResults: (results: ParsedContext[] | null) => void;
+  setIsSearching: (isSearching: boolean) => void;
+  clearSearch: () => void;
 }
 
 const initialFilters: FilterState = {
@@ -44,6 +52,9 @@ export const useUpwellingStore = create<UpwellingState>((set) => ({
   expandedContextIds: new Set(),
   filters: initialFilters,
   contexts: [],
+  isSearching: false,
+  searchResults: null,
+  searchQuery: '',
 
   // Actions
   setProject: (project) => set({
@@ -51,6 +62,8 @@ export const useUpwellingStore = create<UpwellingState>((set) => ({
     selectedContextId: null,
     expandedContextIds: new Set(),
     contexts: [],
+    searchResults: null,
+    searchQuery: '',
   }),
   setView: (view) => set({ view }),
 
@@ -69,6 +82,7 @@ export const useUpwellingStore = create<UpwellingState>((set) => ({
 
   setSearchQuery: (searchQuery) =>
     set((state) => ({
+      searchQuery,
       filters: { ...state.filters, searchQuery },
     })),
 
@@ -91,6 +105,16 @@ export const useUpwellingStore = create<UpwellingState>((set) => ({
   clearFilters: () => set({ filters: initialFilters }),
 
   setContexts: (contexts) => set({ contexts }),
+
+  setSearchResults: (results) => set({ searchResults: results }),
+
+  setIsSearching: (isSearching) => set({ isSearching }),
+
+  clearSearch: () => set({
+    searchResults: null,
+    searchQuery: '',
+    filters: { ...initialFilters },
+  }),
 }));
 
 // Selector for filtered contexts

@@ -1,42 +1,59 @@
 'use client';
 
-import { FileText, Users, Calendar, Boxes } from 'lucide-react';
+import { FileText, Users, Calendar, Boxes, Search, Info } from 'lucide-react';
 import { cn, formatDate } from '@/lib/utils';
-import type { ProjectStats } from '@/types';
+import type { ProjectStats, ProjectName } from '@/types';
 
 interface StatsPanelProps {
   stats: ProjectStats;
+  projectTotalContexts?: number;
+  currentProject: ProjectName;
 }
 
-export function StatsPanel({ stats }: StatsPanelProps) {
+export function StatsPanel({ stats, projectTotalContexts, currentProject }: StatsPanelProps) {
+  const showingPartial = projectTotalContexts && projectTotalContexts > stats.totalContexts;
+
   return (
-    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-      <StatCard
-        icon={<FileText className="w-5 h-5" />}
-        label="Total Contexts"
-        value={stats.totalContexts}
-        color="blue"
-      />
-      <StatCard
-        icon={<Users className="w-5 h-5" />}
-        label="Instances"
-        value={stats.instanceCount}
-        color="green"
-      />
-      <StatCard
-        icon={<Boxes className="w-5 h-5" />}
-        label="Frameworks"
-        value={stats.frameworks.length}
-        subtext={stats.frameworks.slice(0, 3).join(', ')}
-        color="purple"
-      />
-      <StatCard
-        icon={<Calendar className="w-5 h-5" />}
-        label="Time Span"
-        value={calculateMonths(stats.dateRange.earliest, stats.dateRange.latest)}
-        subtext={`${formatDate(stats.dateRange.earliest)} - ${formatDate(stats.dateRange.latest)}`}
-        color="amber"
-      />
+    <div className="space-y-4 mb-8">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <StatCard
+          icon={<FileText className="w-5 h-5" />}
+          label={showingPartial ? "Showing" : "Total Contexts"}
+          value={showingPartial ? `${stats.totalContexts} of ${projectTotalContexts}` : stats.totalContexts}
+          color="blue"
+        />
+        <StatCard
+          icon={<Users className="w-5 h-5" />}
+          label="Instances"
+          value={stats.instanceCount}
+          color="green"
+        />
+        <StatCard
+          icon={<Boxes className="w-5 h-5" />}
+          label="Frameworks"
+          value={stats.frameworks.length}
+          subtext={stats.frameworks.slice(0, 3).join(', ')}
+          color="purple"
+        />
+        <StatCard
+          icon={<Calendar className="w-5 h-5" />}
+          label="Time Span"
+          value={calculateMonths(stats.dateRange.earliest, stats.dateRange.latest)}
+          subtext={`${formatDate(stats.dateRange.earliest)} - ${formatDate(stats.dateRange.latest)}`}
+          color="amber"
+        />
+      </div>
+
+      {showingPartial && currentProject === 'emergence-notes' && (
+        <div className="flex items-start gap-3 px-4 py-3 bg-blue-500/10 border border-blue-500/30 rounded-lg text-sm">
+          <Search className="w-5 h-5 text-blue-400 flex-shrink-0 mt-0.5" />
+          <div className="text-blue-200">
+            <span className="font-medium">Explore deeper:</span>{' '}
+            Showing 20 most recent contexts. Use semantic search to find specific topics across all {projectTotalContexts} contexts.
+            Try searching for "framework evolution", "consciousness", "memory architecture", or "handoff".
+          </div>
+        </div>
+      )}
     </div>
   );
 }

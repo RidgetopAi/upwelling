@@ -1,9 +1,10 @@
 'use client';
 
-import { Search, Activity, Grid, List, BookOpen, Layers } from 'lucide-react';
+import { useState, useCallback } from 'react';
+import { Search, Activity, Grid, List, BookOpen, Layers, X, Loader2 } from 'lucide-react';
 import { useUpwellingStore } from '@/stores/upwellingStore';
 import { cn } from '@/lib/utils';
-import type { ProjectName } from '@/types';
+import type { ProjectName, ParsedContext } from '@/types';
 
 const PROJECT_INFO: Record<ProjectName, { icon: typeof BookOpen; label: string; description: string }> = {
   'emergence-notes': {
@@ -18,8 +19,72 @@ const PROJECT_INFO: Record<ProjectName, { icon: typeof BookOpen; label: string; 
   },
 };
 
+async function performSearch(
+  query: string,
+  project: ProjectName
+): Promise<{ contexts: ParsedContext[]; resultCount: number }> {
+  const response = await fetch(
+    `/api/contexts/search?q=${encodeURIComponent(query)}&project=${project}&limit=20`
+  );
+  if (!response.ok) {
+    throw new Error('Search failed');
+  }
+  return response.json();
+}
+
 export function Header() {
-  const { view, setView, filters, setSearchQuery, currentProject, setProject } = useUpwellingStore();
+  const {
+    view,
+    setView,
+    searchQuery,
+    setSearchQuery,
+    currentProject,
+    setProject,
+    setSearchResults,
+    setIsSearching,
+    isSearching,
+    searchResults,
+    clearSearch,
+  } = useUpwellingStore();
+
+  const [localQuery, setLocalQuery] = useState(searchQuery);
+
+  const handleSearch = useCallback(async () => {
+    if (!localQuery.trim()) {
+      clearSearch();
+      return;
+    }
+
+    setIsSearching(true);
+    setSearchQuery(localQuery);
+    try {
+      const results = await performSearch(localQuery, currentProject);
+      setSearchResults(results.contexts);
+    } catch (error) {
+      console.error('Search failed:', error);
+      setSearchResults([]);
+    } finally {
+      setIsSearching(false);
+    }
+  }, [localQuery, currentProject, setSearchQuery, setSearchResults, setIsSearching, clearSearch]);
+
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      if (e.key === 'Enter') {
+        handleSearch();
+      }
+      if (e.key === 'Escape') {
+        setLocalQuery('');
+        clearSearch();
+      }
+    },
+    [handleSearch, clearSearch]
+  );
+
+  const handleClear = useCallback(() => {
+    setLocalQuery('');
+    clearSearch();
+  }, [clearSearch]);
 
   return (
     <header className="border-b border-[var(--border)] bg-[var(--surface)]">
@@ -67,15 +132,34 @@ export function Header() {
           {/* Search */}
           <div className="flex-1 max-w-md mx-8">
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--muted)]" />
+              {isSearching ? (
+                <Loader2 className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--primary)] animate-spin" />
+              ) : (
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--muted)]" />
+              )}
               <input
                 type="text"
-                placeholder="Search contexts..."
-                value={filters.searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 bg-[var(--background)] border border-[var(--border)] rounded-lg text-sm text-[var(--foreground)] placeholder:text-[var(--muted)] focus:outline-none focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent"
+                placeholder="Semantic search... (Enter to search)"
+                value={localQuery}
+                onChange={(e) => setLocalQuery(e.target.value)}
+                onKeyDown={handleKeyDown}
+                className="w-full pl-10 pr-10 py-2 bg-[var(--background)] border border-[var(--border)] rounded-lg text-sm text-[var(--foreground)] placeholder:text-[var(--muted)] focus:outline-none focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent"
               />
+              {(localQuery || searchResults) && (
+                <button
+                  onClick={handleClear}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--muted)] hover:text-[var(--foreground)]"
+                  title="Clear search"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              )}
             </div>
+            {searchResults && (
+              <div className="absolute mt-1 text-xs text-[var(--muted)]">
+                {searchResults.length} semantic matches for "{searchQuery}"
+              </div>
+            )}
           </div>
 
           {/* View Toggle */}

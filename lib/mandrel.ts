@@ -131,23 +131,51 @@ class MandrelClient {
     const contexts: MandrelContext[] = [];
 
     // Parse the formatted text response from Mandrel
-    // Format: N. **type** (time ago)\n   Content: ...\n   Tags: [...]\n   ID: ...
-    // Use a regex that matches each complete context block by looking for ID pattern
-    const contextPattern = /(\d+)\.\s+\*\*(\w+)\*\*\s+\(([^)]+)\)\s+Content:\s+([\s\S]*?)\s+Tags:\s+\[([^\]]*)\]\s+ID:\s+([a-f0-9-]+)/gi;
+    // Two formats:
+    // Recent: N. **type** (time ago)\n   Content: ...\n   Tags: [...]\n   ID: ...
+    // Search: N. **type** (similarity: XX.X%, time ago)\n   Content: ...\n   Tags: [...]\n   ID: ...
 
+    // Pattern for recent contexts (no similarity)
+    const recentPattern = /(\d+)\.\s+\*\*(\w+)\*\*\s+\(([^)]+)\)\s+Content:\s+([\s\S]*?)\s+Tags:\s+\[([^\]]*)\]\s+ID:\s+([a-f0-9-]+)/gi;
+
+    // Pattern for search results (with similarity)
+    const searchPattern = /(\d+)\.\s+\*\*(\w+)\*\*\s+\(similarity:\s+([\d.]+)%,\s+([^)]+)\)\s+Content:\s+([\s\S]*?)\s+Tags:\s+\[([^\]]*)\]\s+ID:\s+([a-f0-9-]+)/gi;
+
+    // Try search pattern first (more specific)
     let match;
-    while ((match = contextPattern.exec(text)) !== null) {
+    let foundSearchResults = false;
+    while ((match = searchPattern.exec(text)) !== null) {
+      foundSearchResults = true;
       try {
-        const [, , type, timeAgo, content, tagsStr, id] = match;
+        const [, , type, similarity, timeAgo, content, tagsStr, id] = match;
         contexts.push({
           id,
           content: content.trim(),
           type: (type?.toLowerCase() || 'discussion') as MandrelContext['type'],
           tags: tagsStr?.split(',').map((t) => t.trim().replace(/['"]/g, '')) || [],
           created_at: this.parseRelativeTime(timeAgo || ''),
+          similarity: parseFloat(similarity),
         });
       } catch (e) {
-        console.error('Error parsing context block:', e);
+        console.error('Error parsing search context block:', e);
+      }
+    }
+
+    // If no search results found, try recent pattern
+    if (!foundSearchResults) {
+      while ((match = recentPattern.exec(text)) !== null) {
+        try {
+          const [, , type, timeAgo, content, tagsStr, id] = match;
+          contexts.push({
+            id,
+            content: content.trim(),
+            type: (type?.toLowerCase() || 'discussion') as MandrelContext['type'],
+            tags: tagsStr?.split(',').map((t) => t.trim().replace(/['"]/g, '')) || [],
+            created_at: this.parseRelativeTime(timeAgo || ''),
+          });
+        } catch (e) {
+          console.error('Error parsing context block:', e);
+        }
       }
     }
 
