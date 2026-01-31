@@ -2,7 +2,7 @@
 
 import { useState, useCallback } from 'react';
 import Link from 'next/link';
-import { Search, Activity, Grid, List, BookOpen, Layers, X, Loader2, Info, Network, Award, Scroll } from 'lucide-react';
+import { Search, Activity, Grid, List, BookOpen, Layers, X, Loader2, Info, Network, Award, Scroll, Lightbulb } from 'lucide-react';
 import { useUpwellingStore } from '@/stores/upwellingStore';
 import { cn } from '@/lib/utils';
 import { HealthStatus } from './HealthStatus';
@@ -223,6 +223,16 @@ export function Header() {
             <span>Chronicles</span>
           </Link>
 
+          {/* Thinking Link */}
+          <Link
+            href="/thinking"
+            className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-[var(--muted)] hover:text-[var(--foreground)] transition-colors"
+            title="The Thinking - See AI reasoning"
+          >
+            <Lightbulb className="w-4 h-4" />
+            <span>Thinking</span>
+          </Link>
+
           {/* About Link */}
           <Link
             href="/about"
@@ -296,6 +306,13 @@ export function Header() {
                 title="Chronicles"
               >
                 <Scroll className="w-4 h-4" />
+              </Link>
+              <Link
+                href="/thinking"
+                className="p-1.5 text-[var(--muted)] hover:text-[var(--foreground)] transition-colors"
+                title="The Thinking"
+              >
+                <Lightbulb className="w-4 h-4" />
               </Link>
               <Link
                 href="/about"
