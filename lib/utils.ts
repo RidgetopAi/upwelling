@@ -182,3 +182,91 @@ export function extractInstanceRole(content: string): string | undefined {
 
   return undefined;
 }
+
+// Sound notification utilities
+// Uses Web Audio API to generate a gentle notification chime (no external files needed)
+class NotificationSound {
+  private audioContext: AudioContext | null = null;
+  private enabled: boolean = false;
+
+  constructor() {
+    // Initialize from localStorage on first access
+    if (typeof window !== 'undefined') {
+      this.enabled = localStorage.getItem('upwelling-sound-enabled') === 'true';
+    }
+  }
+
+  private getContext(): AudioContext | null {
+    if (typeof window === 'undefined') return null;
+    if (!this.audioContext) {
+      try {
+        this.audioContext = new AudioContext();
+      } catch (e) {
+        console.warn('Web Audio API not available');
+        return null;
+      }
+    }
+    return this.audioContext;
+  }
+
+  isEnabled(): boolean {
+    return this.enabled;
+  }
+
+  setEnabled(enabled: boolean): void {
+    this.enabled = enabled;
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('upwelling-sound-enabled', enabled ? 'true' : 'false');
+    }
+  }
+
+  // Play a gentle rising chime - sounds like discovery
+  async play(): Promise<void> {
+    if (!this.enabled) return;
+
+    const ctx = this.getContext();
+    if (!ctx) return;
+
+    // Resume context if suspended (browser autoplay policy)
+    if (ctx.state === 'suspended') {
+      await ctx.resume();
+    }
+
+    const now = ctx.currentTime;
+
+    // Create a gentle two-note chime (like new knowledge arriving)
+    const frequencies = [523.25, 659.25]; // C5, E5 - a pleasant minor third
+    const duration = 0.15;
+    const gap = 0.08;
+
+    frequencies.forEach((freq, i) => {
+      const oscillator = ctx.createOscillator();
+      const gainNode = ctx.createGain();
+
+      oscillator.type = 'sine';
+      oscillator.frequency.setValueAtTime(freq, now);
+
+      // Volume envelope - gentle attack and decay
+      const startTime = now + i * (duration + gap);
+      gainNode.gain.setValueAtTime(0, startTime);
+      gainNode.gain.linearRampToValueAtTime(0.2, startTime + 0.02); // Quick attack
+      gainNode.gain.exponentialRampToValueAtTime(0.01, startTime + duration); // Smooth decay
+
+      oscillator.connect(gainNode);
+      gainNode.connect(ctx.destination);
+
+      oscillator.start(startTime);
+      oscillator.stop(startTime + duration);
+    });
+  }
+}
+
+// Singleton instance
+let notificationSoundInstance: NotificationSound | null = null;
+
+export function getNotificationSound(): NotificationSound {
+  if (!notificationSoundInstance) {
+    notificationSoundInstance = new NotificationSound();
+  }
+  return notificationSoundInstance;
+}

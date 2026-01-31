@@ -1,8 +1,8 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { RefreshCw, Bell, BellOff, Wifi, WifiOff, Radio } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { RefreshCw, Bell, BellOff, Wifi, WifiOff, Radio, Volume2, VolumeX } from 'lucide-react';
+import { cn, getNotificationSound } from '@/lib/utils';
 import type { ProjectName } from '@/types';
 
 interface LiveUpdatesProps {
@@ -27,7 +27,14 @@ export function LiveUpdates({
   const [isChecking, setIsChecking] = useState(false);
   const [lastChecked, setLastChecked] = useState<Date>(new Date());
   const [connectionStatus, setConnectionStatus] = useState<'connected' | 'checking' | 'error'>('connected');
+  const [soundEnabled, setSoundEnabled] = useState(false);
   const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const notificationSound = useRef(getNotificationSound());
+
+  // Initialize sound state from localStorage on mount
+  useEffect(() => {
+    setSoundEnabled(notificationSound.current.isEnabled());
+  }, []);
 
   // Check for new contexts
   const checkForUpdates = useCallback(async () => {
@@ -50,6 +57,8 @@ export function LiveUpdates({
       if (serverCount > latestCount) {
         const newCount = serverCount - latestCount;
         setNewContextsAvailable(newCount);
+        // Play notification sound if enabled
+        notificationSound.current.play();
       }
 
       setLatestCount(serverCount);
@@ -100,6 +109,17 @@ export function LiveUpdates({
     }
   }, [isLive, checkForUpdates]);
 
+  // Toggle sound notifications
+  const toggleSound = useCallback(() => {
+    const newState = !soundEnabled;
+    setSoundEnabled(newState);
+    notificationSound.current.setEnabled(newState);
+    // Play a test chime when enabling so user knows what to expect
+    if (newState) {
+      notificationSound.current.play();
+    }
+  }, [soundEnabled]);
+
   // Format last checked time
   const formatLastChecked = (date: Date) => {
     const now = new Date();
@@ -137,6 +157,26 @@ export function LiveUpdates({
           </>
         )}
       </button>
+
+      {/* Sound toggle - only show when live mode is enabled */}
+      {isLive && (
+        <button
+          onClick={toggleSound}
+          className={cn(
+            'flex items-center gap-1 px-1.5 py-1 rounded-md text-xs transition-colors',
+            soundEnabled
+              ? 'bg-amber-500/20 text-amber-500 hover:bg-amber-500/30'
+              : 'text-[var(--muted)] hover:text-[var(--foreground)] hover:bg-[var(--surface)]'
+          )}
+          title={soundEnabled ? 'Sound notifications enabled - click to disable' : 'Sound notifications disabled - click to enable'}
+        >
+          {soundEnabled ? (
+            <Volume2 className="w-3.5 h-3.5" />
+          ) : (
+            <VolumeX className="w-3.5 h-3.5" />
+          )}
+        </button>
+      )}
 
       {/* Connection status */}
       {isLive && (
