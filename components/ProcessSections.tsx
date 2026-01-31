@@ -206,7 +206,10 @@ function ProcessSectionCard({ section, defaultExpanded = false }: ProcessSection
 
       {isExpanded && (
         <div className="px-3 pb-3 border-t border-[var(--border)]">
-          <div className="mt-3 text-sm text-[var(--foreground)] whitespace-pre-wrap bg-[var(--background)] p-4 rounded-lg overflow-x-auto leading-relaxed">
+          <div
+            className="mt-3 text-sm whitespace-pre-wrap p-4 rounded-lg overflow-x-auto leading-relaxed"
+            style={{ color: 'var(--foreground)', backgroundColor: 'var(--background)' }}
+          >
             {section.content}
           </div>
         </div>
@@ -228,7 +231,10 @@ export function ProcessSections({ content }: ProcessSectionsProps) {
 
   if (!hasStructure) {
     return (
-      <div className="text-sm text-[var(--foreground)] whitespace-pre-wrap bg-[var(--background)] p-4 rounded-lg overflow-x-auto leading-relaxed">
+      <div
+        className="text-sm whitespace-pre-wrap p-4 rounded-lg overflow-x-auto leading-relaxed"
+        style={{ color: 'var(--foreground)', backgroundColor: 'var(--background)' }}
+      >
         {content}
       </div>
     );
@@ -254,7 +260,10 @@ export function ProcessSections({ content }: ProcessSectionsProps) {
       </div>
 
       {showRaw ? (
-        <div className="text-sm text-[var(--foreground)] whitespace-pre-wrap bg-[var(--background)] p-4 rounded-lg overflow-x-auto leading-relaxed">
+        <div
+          className="text-sm whitespace-pre-wrap p-4 rounded-lg overflow-x-auto leading-relaxed"
+          style={{ color: 'var(--foreground)', backgroundColor: 'var(--background)' }}
+        >
           {content}
         </div>
       ) : (
