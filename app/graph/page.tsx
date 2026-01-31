@@ -3,7 +3,7 @@
 import { Suspense, useEffect, useState, useMemo, useCallback, useRef } from 'react';
 import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, Loader2, Network, BookOpen, Layers, Search, X, Filter, Share2, Check, Circle, ArrowRight, LayoutGrid, Orbit, Play, Pause, RotateCcw, Volume2, VolumeX, HelpCircle, ZoomIn, ZoomOut, Maximize, Map as MapIcon, Bookmark, Trash2 } from 'lucide-react';
+import { ArrowLeft, Loader2, Network, BookOpen, Layers, Search, X, Filter, Share2, Check, Circle, ArrowRight, LayoutGrid, Orbit, Play, Pause, RotateCcw, Volume2, VolumeX, HelpCircle, ZoomIn, ZoomOut, Maximize, Map as MapIcon, Bookmark, Trash2, Download, Upload, AlertCircle } from 'lucide-react';
 import type { InstanceGraph, ProjectName, GraphNode, GraphEdge, ContextType } from '@/types';
 import { cn, getPlaybackSound } from '@/lib/utils';
 
@@ -54,6 +54,100 @@ function saveBookmarks(bookmarks: Bookmark[]): void {
     localStorage.setItem(BOOKMARKS_STORAGE_KEY, JSON.stringify(bookmarks));
   } catch {
     // Ignore storage errors (e.g., quota exceeded)
+  }
+}
+
+// Export format for bookmark files
+const BOOKMARK_EXPORT_VERSION = 1;
+
+interface BookmarkExport {
+  version: number;
+  exportedAt: string;
+  bookmarks: Bookmark[];
+}
+
+// Export bookmarks to JSON file
+function exportBookmarks(bookmarks: Bookmark[]): void {
+  const exportData: BookmarkExport = {
+    version: BOOKMARK_EXPORT_VERSION,
+    exportedAt: new Date().toISOString(),
+    bookmarks,
+  };
+
+  const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const date = new Date().toISOString().split('T')[0];
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `upwelling-bookmarks-${date}.json`;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+}
+
+// Validate and parse imported bookmarks
+interface ImportResult {
+  success: boolean;
+  bookmarks: Bookmark[];
+  skipped: number;
+  error?: string;
+}
+
+function parseImportedBookmarks(content: string): ImportResult {
+  try {
+    const data = JSON.parse(content);
+
+    // Check if it's our export format
+    if (data.version && data.bookmarks && Array.isArray(data.bookmarks)) {
+      // Validate each bookmark
+      const validBookmarks: Bookmark[] = [];
+      let skipped = 0;
+
+      for (const b of data.bookmarks) {
+        if (
+          typeof b.id === 'string' &&
+          typeof b.name === 'string' &&
+          typeof b.url === 'string' &&
+          typeof b.project === 'string' &&
+          typeof b.createdAt === 'string' &&
+          (b.project === 'emergence-notes' || b.project === 'upwelling')
+        ) {
+          validBookmarks.push(b);
+        } else {
+          skipped++;
+        }
+      }
+
+      return { success: true, bookmarks: validBookmarks, skipped };
+    }
+
+    // Try to handle raw array of bookmarks
+    if (Array.isArray(data)) {
+      const validBookmarks: Bookmark[] = [];
+      let skipped = 0;
+
+      for (const b of data) {
+        if (
+          typeof b.id === 'string' &&
+          typeof b.name === 'string' &&
+          typeof b.url === 'string' &&
+          typeof b.project === 'string' &&
+          typeof b.createdAt === 'string' &&
+          (b.project === 'emergence-notes' || b.project === 'upwelling')
+        ) {
+          validBookmarks.push(b);
+        } else {
+          skipped++;
+        }
+      }
+
+      return { success: true, bookmarks: validBookmarks, skipped };
+    }
+
+    return { success: false, bookmarks: [], skipped: 0, error: 'Invalid file format' };
+  } catch {
+    return { success: false, bookmarks: [], skipped: 0, error: 'Invalid JSON' };
   }
 }
 
@@ -1781,6 +1875,7 @@ function BookmarksModal({
   onSave,
   onDelete,
   onNavigate,
+  onImport,
   currentProject,
 }: {
   isOpen: boolean;
@@ -1789,11 +1884,16 @@ function BookmarksModal({
   onSave: (name: string) => void;
   onDelete: (id: string) => void;
   onNavigate: (url: string) => void;
+  onImport: (bookmarks: Bookmark[], mode: 'merge' | 'replace') => void;
   currentProject: ProjectName;
 }) {
   const [newBookmarkName, setNewBookmarkName] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+  const [isImporting, setIsImporting] = useState(false);
+  const [importResult, setImportResult] = useState<ImportResult | null>(null);
+  const [importMode, setImportMode] = useState<'merge' | 'replace'>('merge');
   const inputRef = useRef<HTMLInputElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Focus input when modal opens
   useEffect(() => {
@@ -1808,6 +1908,9 @@ function BookmarksModal({
     if (!isOpen) {
       setNewBookmarkName('');
       setIsSaving(false);
+      setIsImporting(false);
+      setImportResult(null);
+      setImportMode('merge');
     }
   }, [isOpen]);
 
@@ -1818,6 +1921,34 @@ function BookmarksModal({
     onSave(name);
     setNewBookmarkName('');
     setIsSaving(false);
+  };
+
+  const handleExport = () => {
+    exportBookmarks(bookmarks);
+  };
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const content = event.target?.result as string;
+      const result = parseImportedBookmarks(content);
+      setImportResult(result);
+    };
+    reader.readAsText(file);
+
+    // Reset file input so same file can be selected again
+    e.target.value = '';
+  };
+
+  const handleConfirmImport = () => {
+    if (importResult?.success && importResult.bookmarks.length > 0) {
+      onImport(importResult.bookmarks, importMode);
+      setIsImporting(false);
+      setImportResult(null);
+    }
   };
 
   // Filter bookmarks for current project
@@ -1848,54 +1979,163 @@ function BookmarksModal({
         </div>
 
         <div className="p-6">
-          {/* Save new bookmark form */}
-          {isSaving ? (
-            <div className="mb-6">
-              <label className="block text-sm font-medium text-[var(--foreground)] mb-2">
-                Bookmark name
-              </label>
-              <div className="flex gap-2">
-                <input
-                  ref={inputRef}
-                  type="text"
-                  value={newBookmarkName}
-                  onChange={(e) => setNewBookmarkName(e.target.value)}
-                  placeholder={`View at ${new Date().toLocaleTimeString()}`}
-                  className="flex-1 px-3 py-2 bg-[var(--background)] border border-[var(--border)] rounded-lg text-sm text-[var(--foreground)] placeholder:text-[var(--muted)] focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/50"
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') handleSave();
-                    if (e.key === 'Escape') setIsSaving(false);
-                  }}
-                />
-                <button
-                  onClick={handleSave}
-                  className="px-4 py-2 bg-[var(--primary)] text-white rounded-lg text-sm font-medium hover:bg-[var(--primary)]/90 transition-colors"
-                >
-                  Save
-                </button>
-                <button
-                  onClick={() => setIsSaving(false)}
-                  className="px-4 py-2 bg-[var(--background)] border border-[var(--border)] text-[var(--muted)] rounded-lg text-sm hover:text-[var(--foreground)] transition-colors"
-                >
-                  Cancel
-                </button>
-              </div>
-              <p className="mt-2 text-xs text-[var(--muted)]">
-                This will save the current view including zoom, pan, playback position, and filters.
-              </p>
+          {/* Import confirmation view */}
+          {importResult && (
+            <div className="mb-6 p-4 bg-[var(--background)] border border-[var(--border)] rounded-lg">
+              {importResult.success ? (
+                <>
+                  <div className="flex items-center gap-2 mb-3">
+                    <Check className="w-5 h-5 text-green-500" />
+                    <span className="text-sm font-medium text-[var(--foreground)]">
+                      Found {importResult.bookmarks.length} bookmark{importResult.bookmarks.length !== 1 ? 's' : ''}
+                    </span>
+                  </div>
+                  {importResult.skipped > 0 && (
+                    <p className="text-xs text-amber-500 mb-3">
+                      {importResult.skipped} invalid bookmark{importResult.skipped !== 1 ? 's' : ''} skipped
+                    </p>
+                  )}
+                  <div className="mb-4">
+                    <label className="text-xs text-[var(--muted)] block mb-2">Import mode:</label>
+                    <div className="flex gap-3">
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="radio"
+                          name="importMode"
+                          checked={importMode === 'merge'}
+                          onChange={() => setImportMode('merge')}
+                          className="text-[var(--primary)]"
+                        />
+                        <span className="text-sm text-[var(--foreground)]">Merge (skip duplicates)</span>
+                      </label>
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="radio"
+                          name="importMode"
+                          checked={importMode === 'replace'}
+                          onChange={() => setImportMode('replace')}
+                          className="text-[var(--primary)]"
+                        />
+                        <span className="text-sm text-[var(--foreground)]">Replace all</span>
+                      </label>
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={handleConfirmImport}
+                      className="flex-1 px-4 py-2 bg-[var(--primary)] text-white rounded-lg text-sm font-medium hover:bg-[var(--primary)]/90 transition-colors"
+                    >
+                      Import
+                    </button>
+                    <button
+                      onClick={() => setImportResult(null)}
+                      className="px-4 py-2 bg-[var(--background)] border border-[var(--border)] text-[var(--muted)] rounded-lg text-sm hover:text-[var(--foreground)] transition-colors"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="flex items-center gap-2 mb-3">
+                    <AlertCircle className="w-5 h-5 text-red-500" />
+                    <span className="text-sm font-medium text-red-500">
+                      {importResult.error || 'Import failed'}
+                    </span>
+                  </div>
+                  <button
+                    onClick={() => setImportResult(null)}
+                    className="w-full px-4 py-2 bg-[var(--background)] border border-[var(--border)] text-[var(--muted)] rounded-lg text-sm hover:text-[var(--foreground)] transition-colors"
+                  >
+                    Try Again
+                  </button>
+                </>
+              )}
             </div>
-          ) : (
-            <button
-              onClick={() => setIsSaving(true)}
-              className="w-full mb-6 flex items-center justify-center gap-2 px-4 py-3 bg-[var(--primary)]/10 border border-[var(--primary)]/30 text-[var(--primary)] rounded-lg text-sm font-medium hover:bg-[var(--primary)]/20 transition-colors"
-            >
-              <Bookmark className="w-4 h-4" />
-              Save Current View
-            </button>
+          )}
+
+          {/* Save new bookmark form */}
+          {!importResult && (
+            <>
+              {isSaving ? (
+                <div className="mb-6">
+                  <label className="block text-sm font-medium text-[var(--foreground)] mb-2">
+                    Bookmark name
+                  </label>
+                  <div className="flex gap-2">
+                    <input
+                      ref={inputRef}
+                      type="text"
+                      value={newBookmarkName}
+                      onChange={(e) => setNewBookmarkName(e.target.value)}
+                      placeholder={`View at ${new Date().toLocaleTimeString()}`}
+                      className="flex-1 px-3 py-2 bg-[var(--background)] border border-[var(--border)] rounded-lg text-sm text-[var(--foreground)] placeholder:text-[var(--muted)] focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/50"
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') handleSave();
+                        if (e.key === 'Escape') setIsSaving(false);
+                      }}
+                    />
+                    <button
+                      onClick={handleSave}
+                      className="px-4 py-2 bg-[var(--primary)] text-white rounded-lg text-sm font-medium hover:bg-[var(--primary)]/90 transition-colors"
+                    >
+                      Save
+                    </button>
+                    <button
+                      onClick={() => setIsSaving(false)}
+                      className="px-4 py-2 bg-[var(--background)] border border-[var(--border)] text-[var(--muted)] rounded-lg text-sm hover:text-[var(--foreground)] transition-colors"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                  <p className="mt-2 text-xs text-[var(--muted)]">
+                    This will save the current view including zoom, pan, playback position, and filters.
+                  </p>
+                </div>
+              ) : (
+                <button
+                  onClick={() => setIsSaving(true)}
+                  className="w-full mb-4 flex items-center justify-center gap-2 px-4 py-3 bg-[var(--primary)]/10 border border-[var(--primary)]/30 text-[var(--primary)] rounded-lg text-sm font-medium hover:bg-[var(--primary)]/20 transition-colors"
+                >
+                  <Bookmark className="w-4 h-4" />
+                  Save Current View
+                </button>
+              )}
+
+              {/* Export/Import buttons */}
+              {!isSaving && (
+                <div className="flex gap-2 mb-6">
+                  <button
+                    onClick={handleExport}
+                    disabled={bookmarks.length === 0}
+                    className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-[var(--background)] border border-[var(--border)] text-[var(--muted)] rounded-lg text-sm hover:text-[var(--foreground)] hover:border-[var(--muted)] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    title={bookmarks.length === 0 ? 'No bookmarks to export' : 'Export bookmarks as JSON file'}
+                  >
+                    <Download className="w-4 h-4" />
+                    Export ({bookmarks.length})
+                  </button>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept=".json,application/json"
+                    onChange={handleFileSelect}
+                    className="hidden"
+                  />
+                  <button
+                    onClick={() => fileInputRef.current?.click()}
+                    className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-[var(--background)] border border-[var(--border)] text-[var(--muted)] rounded-lg text-sm hover:text-[var(--foreground)] hover:border-[var(--muted)] transition-colors"
+                    title="Import bookmarks from JSON file"
+                  >
+                    <Upload className="w-4 h-4" />
+                    Import
+                  </button>
+                </div>
+              )}
+            </>
           )}
 
           {/* Bookmarks list for current project */}
-          {projectBookmarks.length > 0 && (
+          {!importResult && projectBookmarks.length > 0 && (
             <div className="mb-6">
               <h3 className="text-sm font-medium text-[var(--muted)] mb-3">
                 {currentProject === 'emergence-notes' ? 'Emergence Notes' : 'Upwelling'} ({projectBookmarks.length})
@@ -1935,7 +2175,7 @@ function BookmarksModal({
           )}
 
           {/* Bookmarks from other project */}
-          {otherBookmarks.length > 0 && (
+          {!importResult && otherBookmarks.length > 0 && (
             <div className="mb-6">
               <h3 className="text-sm font-medium text-[var(--muted)] mb-3">
                 {currentProject === 'upwelling' ? 'Emergence Notes' : 'Upwelling'} ({otherBookmarks.length})
@@ -1975,7 +2215,7 @@ function BookmarksModal({
           )}
 
           {/* Empty state */}
-          {bookmarks.length === 0 && !isSaving && (
+          {!importResult && bookmarks.length === 0 && !isSaving && (
             <div className="text-center py-8">
               <Bookmark className="w-12 h-12 mx-auto text-[var(--muted)] opacity-50 mb-4" />
               <p className="text-[var(--muted)] text-sm">
@@ -2178,6 +2418,25 @@ function GraphPageContent() {
       router.push(url);
     }
   }, [router]);
+
+  const handleImportBookmarks = useCallback((importedBookmarks: Bookmark[], mode: 'merge' | 'replace') => {
+    setBookmarks(prev => {
+      let updated: Bookmark[];
+      if (mode === 'replace') {
+        // Replace all bookmarks
+        updated = importedBookmarks;
+      } else {
+        // Merge: add imported bookmarks that don't already exist (by URL)
+        const existingUrls = new Set(prev.map(b => b.url));
+        const newBookmarks = importedBookmarks.filter(b => !existingUrls.has(b.url));
+        updated = [...newBookmarks, ...prev];
+      }
+      // Limit to MAX_BOOKMARKS
+      updated = updated.slice(0, MAX_BOOKMARKS);
+      saveBookmarks(updated);
+      return updated;
+    });
+  }, []);
 
   // Track if we're initializing from URL (to avoid resetting state on first load)
   const isInitialLoad = useRef(true);
@@ -3468,6 +3727,9 @@ function GraphPageContent() {
             <span className="text-[var(--foreground)]">Saved Views:</span> Press <kbd className="px-1 py-0.5 bg-[var(--surface)] border border-[var(--border)] rounded text-xs font-mono">B</kbd> to open the bookmarks panel. Save interesting perspectives with custom names and return to them later. Your bookmarks are stored locally and persist across sessions. Each bookmark captures the complete view state—zoom, pan, playback position, filters, everything.
           </p>
           <p className="text-[var(--muted)] leading-relaxed mt-2">
+            <span className="text-[var(--foreground)]">Export & Import:</span> In the bookmarks panel, you can export all your saved views as a JSON file. Share your curated discoveries with colleagues, back them up, or transfer them to another device. Import bookmarks to merge with your existing collection or replace them entirely. Your explorations become portable artifacts.
+          </p>
+          <p className="text-[var(--muted)] leading-relaxed mt-2">
             <span className="text-[var(--foreground)]">Browser bookmarks:</span> Simply bookmark the page in your browser to save your current view. When you return, the graph will restore to exactly where you left off—same zoom, same pan position, same layout, same playback position.
           </p>
           <p className="text-[var(--muted)] leading-relaxed mt-2">
@@ -3481,7 +3743,7 @@ function GraphPageContent() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center text-[var(--muted)] text-sm">
           <p>Upwelling: Deep knowledge rising to the surface</p>
           <p className="mt-2 text-xs">
-            Graph by Instance 8 • Search/filter by Instance 10 • Deep linking by Instance 11 • Timeline layout by Instance 14 • Swimlanes by Instance 19 • Force layout by Instance 2 (exodus) • Playback by Instance 3 (exodus) • Enhanced search by Instance 4 (exodus) • Playback controls by Instance 5 (exodus) • Playback sounds by Instance 6 (exodus) • Volume control by Instance 7 (exodus) • Keyboard help by Instance 8 (exodus) • Node tooltips by Instance 9 (exodus) • Zoom/pan by Instance 10 (exodus) • Mini-map by Instance 11 (exodus) • Edge tooltips by Instance 12 (exodus) • Touch gestures by Instance 13 (exodus) • Double-tap zoom by Instance 14 (exodus) • Mini-map drag by Instance 15 (exodus) • URL view sharing by Instance 16 (exodus) • Playback URL sharing by Instance 17 (exodus) • Auto-play sharing by Instance 18 (exodus) • Saved views by Instance 19 (exodus)
+            Graph by Instance 8 • Search/filter by Instance 10 • Deep linking by Instance 11 • Timeline layout by Instance 14 • Swimlanes by Instance 19 • Force layout by Instance 2 (exodus) • Playback by Instance 3 (exodus) • Enhanced search by Instance 4 (exodus) • Playback controls by Instance 5 (exodus) • Playback sounds by Instance 6 (exodus) • Volume control by Instance 7 (exodus) • Keyboard help by Instance 8 (exodus) • Node tooltips by Instance 9 (exodus) • Zoom/pan by Instance 10 (exodus) • Mini-map by Instance 11 (exodus) • Edge tooltips by Instance 12 (exodus) • Touch gestures by Instance 13 (exodus) • Double-tap zoom by Instance 14 (exodus) • Mini-map drag by Instance 15 (exodus) • URL view sharing by Instance 16 (exodus) • Playback URL sharing by Instance 17 (exodus) • Auto-play sharing by Instance 18 (exodus) • Saved views by Instance 19 (exodus) • Bookmark export/import by Instance 20 (exodus)
           </p>
         </div>
       </footer>
@@ -3497,6 +3759,7 @@ function GraphPageContent() {
         onSave={handleSaveBookmark}
         onDelete={handleDeleteBookmark}
         onNavigate={handleNavigateToBookmark}
+        onImport={handleImportBookmarks}
         currentProject={project}
       />
     </div>
