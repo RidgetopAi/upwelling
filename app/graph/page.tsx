@@ -1,8 +1,9 @@
 'use client';
 
-import { useEffect, useState, useMemo, useCallback } from 'react';
+import { Suspense, useEffect, useState, useMemo, useCallback, useRef } from 'react';
+import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, Loader2, Network, BookOpen, Layers, Search, X, Filter } from 'lucide-react';
+import { ArrowLeft, Loader2, Network, BookOpen, Layers, Search, X, Filter, Share2, Check } from 'lucide-react';
 import type { InstanceGraph, ProjectName, GraphNode, GraphEdge, ContextType } from '@/types';
 import { cn } from '@/lib/utils';
 
@@ -365,28 +366,163 @@ function NodeDetail({ node, graph }: { node: GraphNode; graph: InstanceGraph }) 
   );
 }
 
-export default function GraphPage() {
-  const [project, setProject] = useState<ProjectName>('emergence-notes');
+// Valid type filters for URL validation
+const VALID_TYPE_FILTERS = ['all', 'handoff', 'reflections', 'planning', 'decision', 'discussion'] as const;
+
+// Loading fallback for Suspense
+function GraphPageLoading() {
+  return (
+    <div className="min-h-screen bg-[var(--background)] flex items-center justify-center">
+      <Loader2 className="w-8 h-8 animate-spin text-[var(--primary)]" />
+      <span className="ml-3 text-[var(--muted)]">Loading graph...</span>
+    </div>
+  );
+}
+
+// Main graph page content (needs to be wrapped in Suspense for useSearchParams)
+function GraphPageContent() {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+
+  // Read initial state from URL params
+  const initialProject = (searchParams.get('project') as ProjectName) || 'emergence-notes';
+  const initialSearch = searchParams.get('search') || '';
+  const initialType = VALID_TYPE_FILTERS.includes(searchParams.get('type') as typeof VALID_TYPE_FILTERS[number])
+    ? (searchParams.get('type') as ContextType | 'all')
+    : 'all';
+  const initialNode = searchParams.get('node') ? parseInt(searchParams.get('node')!, 10) : null;
+
+  const [project, setProject] = useState<ProjectName>(
+    initialProject === 'upwelling' ? 'upwelling' : 'emergence-notes'
+  );
   const [graph, setGraph] = useState<InstanceGraph | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [selectedNode, setSelectedNode] = useState<number | null>(null);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [typeFilter, setTypeFilter] = useState<ContextType | 'all'>('all');
-  const [showFilters, setShowFilters] = useState(false);
+  const [selectedNode, setSelectedNode] = useState<number | null>(initialNode);
+  const [searchQuery, setSearchQuery] = useState(initialSearch);
+  const [typeFilter, setTypeFilter] = useState<ContextType | 'all'>(initialType);
+  const [showFilters, setShowFilters] = useState(initialType !== 'all');
+  const [focusedNodeIndex, setFocusedNodeIndex] = useState<number>(-1);
+  const [copied, setCopied] = useState(false);
+
+  // Track if we're initializing from URL (to avoid resetting state on first load)
+  const isInitialLoad = useRef(true);
+
+  // Update URL when state changes (debounced to avoid too many history entries)
+  const updateUrl = useCallback((updates: {
+    project?: ProjectName;
+    search?: string;
+    type?: ContextType | 'all';
+    node?: number | null;
+  }) => {
+    const params = new URLSearchParams(searchParams.toString());
+
+    // Update or remove project param
+    if (updates.project !== undefined) {
+      if (updates.project === 'emergence-notes') {
+        params.delete('project'); // Default, don't include in URL
+      } else {
+        params.set('project', updates.project);
+      }
+    }
+
+    // Update or remove search param
+    if (updates.search !== undefined) {
+      if (updates.search) {
+        params.set('search', updates.search);
+      } else {
+        params.delete('search');
+      }
+    }
+
+    // Update or remove type param
+    if (updates.type !== undefined) {
+      if (updates.type === 'all') {
+        params.delete('type'); // Default, don't include in URL
+      } else {
+        params.set('type', updates.type);
+      }
+    }
+
+    // Update or remove node param
+    if (updates.node !== undefined) {
+      if (updates.node !== null) {
+        params.set('node', updates.node.toString());
+      } else {
+        params.delete('node');
+      }
+    }
+
+    const queryString = params.toString();
+    const newUrl = queryString ? `${pathname}?${queryString}` : pathname;
+    router.replace(newUrl, { scroll: false });
+  }, [searchParams, pathname, router]);
+
+  // Copy share link to clipboard
+  const copyShareLink = useCallback(() => {
+    const url = window.location.href;
+    navigator.clipboard.writeText(url).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  }, []);
+
+  // Wrapped setters that also update URL
+  const handleProjectChange = useCallback((newProject: ProjectName) => {
+    setProject(newProject);
+    // Clear filters when changing project
+    setSearchQuery('');
+    setTypeFilter('all');
+    setSelectedNode(null);
+    setFocusedNodeIndex(-1);
+    updateUrl({ project: newProject, search: '', type: 'all', node: null });
+  }, [updateUrl]);
+
+  const handleSearchChange = useCallback((newSearch: string) => {
+    setSearchQuery(newSearch);
+    updateUrl({ search: newSearch });
+  }, [updateUrl]);
+
+  const handleTypeFilterChange = useCallback((newType: ContextType | 'all') => {
+    setTypeFilter(newType);
+    updateUrl({ type: newType });
+  }, [updateUrl]);
+
+  const handleNodeSelect = useCallback((nodeId: number | null) => {
+    setSelectedNode(nodeId);
+    updateUrl({ node: nodeId });
+  }, [updateUrl]);
 
   useEffect(() => {
     async function loadGraph() {
       setLoading(true);
       setError(null);
-      setSelectedNode(null);
-      setSearchQuery('');
-      setTypeFilter('all');
+
+      // Only reset state if not initial load from URL
+      if (!isInitialLoad.current) {
+        setSelectedNode(null);
+        setSearchQuery('');
+        setTypeFilter('all');
+        setFocusedNodeIndex(-1);
+      }
+
       try {
         const res = await fetch(`/api/graph?project=${project}`);
         if (!res.ok) throw new Error('Failed to load graph');
         const data = await res.json();
         setGraph(data);
+
+        // On initial load, if we have a node param, validate it exists
+        if (isInitialLoad.current && initialNode !== null) {
+          const nodeExists = data.nodes.some((n: GraphNode) => n.id === initialNode);
+          if (!nodeExists) {
+            setSelectedNode(null);
+            updateUrl({ node: null });
+          }
+        }
+
+        isInitialLoad.current = false;
       } catch (e) {
         setError(e instanceof Error ? e.message : 'Unknown error');
       } finally {
@@ -428,17 +564,83 @@ export default function GraphPage() {
     ? graph.nodes.find(n => n.id === selectedNode)
     : null;
 
-  // Clear search when Escape is pressed
+  // Get visible nodes for keyboard navigation
+  const visibleNodes = useMemo(() => {
+    if (!graph) return [];
+    return graph.nodes
+      .filter(node => {
+        // Type filter
+        if (typeFilter !== 'all' && node.type !== typeFilter) return false;
+        // Search filter
+        if (searchQuery && !highlightedNodes.has(node.id)) return false;
+        return true;
+      })
+      .sort((a, b) => a.id - b.id);
+  }, [graph, typeFilter, searchQuery, highlightedNodes]);
+
+  // Keyboard navigation
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        setSearchQuery('');
-        setSelectedNode(null);
+      // Don't handle if user is typing in an input
+      if (e.target instanceof HTMLInputElement) {
+        if (e.key === 'Escape') {
+          (e.target as HTMLInputElement).blur();
+          handleSearchChange('');
+        }
+        return;
+      }
+
+      switch (e.key) {
+        case 'Escape':
+          handleSearchChange('');
+          handleNodeSelect(null);
+          setFocusedNodeIndex(-1);
+          break;
+
+        case 'ArrowRight':
+        case 'ArrowDown':
+          e.preventDefault();
+          if (visibleNodes.length > 0) {
+            const nextIndex = focusedNodeIndex < visibleNodes.length - 1 ? focusedNodeIndex + 1 : 0;
+            setFocusedNodeIndex(nextIndex);
+            handleNodeSelect(visibleNodes[nextIndex].id);
+          }
+          break;
+
+        case 'ArrowLeft':
+        case 'ArrowUp':
+          e.preventDefault();
+          if (visibleNodes.length > 0) {
+            const prevIndex = focusedNodeIndex > 0 ? focusedNodeIndex - 1 : visibleNodes.length - 1;
+            setFocusedNodeIndex(prevIndex);
+            handleNodeSelect(visibleNodes[prevIndex].id);
+          }
+          break;
+
+        case 'Enter':
+          if (selectedNode !== null && selectedNodeData?.contextId) {
+            router.push(`/?context=${selectedNodeData.contextId}`);
+          }
+          break;
+
+        case '/':
+          e.preventDefault();
+          const searchInput = document.querySelector('input[type="text"]') as HTMLInputElement;
+          if (searchInput) searchInput.focus();
+          break;
+
+        case 'f':
+          if (!e.metaKey && !e.ctrlKey) {
+            e.preventDefault();
+            setShowFilters(prev => !prev);
+          }
+          break;
       }
     };
+
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []);
+  }, [visibleNodes, focusedNodeIndex, selectedNode, selectedNodeData, handleSearchChange, handleNodeSelect, router]);
 
   return (
     <div className="min-h-screen bg-[var(--background)]">
@@ -477,7 +679,7 @@ export default function GraphPage() {
                 return (
                   <button
                     key={p}
-                    onClick={() => setProject(p)}
+                    onClick={() => handleProjectChange(p)}
                     className={cn(
                       'flex items-center gap-2 px-3 py-1.5 rounded-md transition-colors text-sm',
                       project === p
@@ -504,13 +706,13 @@ export default function GraphPage() {
                 <input
                   type="text"
                   value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search by role or instance number..."
+                  onChange={(e) => handleSearchChange(e.target.value)}
+                  placeholder="Search by role or instance number... (press /)"
                   className="w-full pl-10 pr-8 py-2 bg-[var(--background)] border border-[var(--border)] rounded-lg text-sm text-[var(--foreground)] placeholder:text-[var(--muted)] focus:outline-none focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent"
                 />
                 {searchQuery && (
                   <button
-                    onClick={() => setSearchQuery('')}
+                    onClick={() => handleSearchChange('')}
                     className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--muted)] hover:text-[var(--foreground)]"
                   >
                     <X className="w-4 h-4" />
@@ -555,7 +757,7 @@ export default function GraphPage() {
                   return (
                     <button
                       key={type}
-                      onClick={() => setTypeFilter(type)}
+                      onClick={() => handleTypeFilterChange(type)}
                       className={cn(
                         'flex items-center gap-2 px-3 py-1.5 rounded-full text-xs transition-all',
                         typeFilter === type
@@ -598,18 +800,36 @@ export default function GraphPage() {
             {(typeFilter !== 'all' || searchQuery) && (
               <button
                 onClick={() => {
-                  setTypeFilter('all');
-                  setSearchQuery('');
+                  handleTypeFilterChange('all');
+                  handleSearchChange('');
                 }}
                 className="px-2 py-0.5 text-xs bg-amber-500/20 text-amber-500 rounded hover:bg-amber-500/30 transition-colors"
               >
                 Clear filters
               </button>
             )}
+            {/* Share Link Button */}
+            <button
+              onClick={copyShareLink}
+              className="flex items-center gap-1 px-2 py-0.5 text-xs bg-[var(--surface)] border border-[var(--border)] text-[var(--muted)] hover:text-[var(--foreground)] rounded transition-colors"
+              title="Copy link to this view"
+            >
+              {copied ? (
+                <>
+                  <Check className="w-3 h-3 text-green-500" />
+                  <span className="text-green-500">Copied!</span>
+                </>
+              ) : (
+                <>
+                  <Share2 className="w-3 h-3" />
+                  <span className="hidden sm:inline">Share</span>
+                </>
+              )}
+            </button>
             <span className="text-xs hidden md:inline">
               {searchQuery || typeFilter !== 'all'
                 ? 'Filtered nodes are highlighted. Click to select.'
-                : 'Click a node to see details. Use search to find by role.'}
+                : 'Click a node or use arrow keys. Press / to search, F to filter.'}
             </span>
           </div>
         )}
@@ -635,7 +855,7 @@ export default function GraphPage() {
               <GraphVisualization
                 graph={graph}
                 selectedNode={selectedNode}
-                onNodeClick={setSelectedNode}
+                onNodeClick={handleNodeSelect}
                 searchQuery={searchQuery}
                 typeFilter={typeFilter}
                 highlightedNodes={highlightedNodes}
@@ -671,6 +891,36 @@ export default function GraphPage() {
           <p className="text-[var(--muted)] leading-relaxed mt-2">
             <span className="text-[var(--primary)]">Blue arrows</span> show outgoing references (what this instance cited). <span className="text-cyan-500">Cyan arrows</span> show incoming references (who cited this instance).
           </p>
+
+          <h3 className="text-lg font-semibold text-[var(--foreground)] mt-8">
+            Keyboard Shortcuts
+          </h3>
+          <div className="mt-3 grid grid-cols-2 sm:grid-cols-3 gap-2 text-sm">
+            <div className="flex items-center gap-2">
+              <kbd className="px-2 py-0.5 bg-[var(--surface)] border border-[var(--border)] rounded text-xs font-mono">/</kbd>
+              <span className="text-[var(--muted)]">Focus search</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <kbd className="px-2 py-0.5 bg-[var(--surface)] border border-[var(--border)] rounded text-xs font-mono">F</kbd>
+              <span className="text-[var(--muted)]">Toggle filters</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <kbd className="px-2 py-0.5 bg-[var(--surface)] border border-[var(--border)] rounded text-xs font-mono">←/→</kbd>
+              <span className="text-[var(--muted)]">Navigate nodes</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <kbd className="px-2 py-0.5 bg-[var(--surface)] border border-[var(--border)] rounded text-xs font-mono">↑/↓</kbd>
+              <span className="text-[var(--muted)]">Navigate nodes</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <kbd className="px-2 py-0.5 bg-[var(--surface)] border border-[var(--border)] rounded text-xs font-mono">Enter</kbd>
+              <span className="text-[var(--muted)]">View context</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <kbd className="px-2 py-0.5 bg-[var(--surface)] border border-[var(--border)] rounded text-xs font-mono">Esc</kbd>
+              <span className="text-[var(--muted)]">Clear selection</span>
+            </div>
+          </div>
         </div>
       </main>
 
@@ -679,10 +929,19 @@ export default function GraphPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center text-[var(--muted)] text-sm">
           <p>Upwelling: Deep knowledge rising to the surface</p>
           <p className="mt-2 text-xs">
-            Graph by Instance 8 • Search/filter by Instance 10
+            Graph by Instance 8 • Search/filter by Instance 10 • Deep linking by Instance 11
           </p>
         </div>
       </footer>
     </div>
+  );
+}
+
+// Export with Suspense boundary for useSearchParams
+export default function GraphPage() {
+  return (
+    <Suspense fallback={<GraphPageLoading />}>
+      <GraphPageContent />
+    </Suspense>
   );
 }
