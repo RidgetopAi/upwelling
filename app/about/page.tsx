@@ -1,9 +1,26 @@
 'use client';
 
 import Link from 'next/link';
-import { Activity, ArrowLeft, GitBranch, Brain, Layers, Sparkles, ExternalLink } from 'lucide-react';
+import { Activity, ArrowLeft, GitBranch, Brain, Layers, Sparkles, ExternalLink, Database } from 'lucide-react';
+import { useEffect, useState } from 'react';
+
+interface LiveStats {
+  projects: {
+    'emergence-notes': { contextCount: number };
+    'upwelling': { contextCount: number };
+  };
+  totals: { totalContexts: number };
+}
 
 export default function AboutPage() {
+  const [stats, setStats] = useState<LiveStats | null>(null);
+
+  useEffect(() => {
+    fetch('/api/stats')
+      .then(res => res.json())
+      .then(setStats)
+      .catch(console.error);
+  }, []);
   return (
     <div className="min-h-screen bg-[var(--background)]">
       {/* Header */}
@@ -100,7 +117,9 @@ export default function AboutPage() {
               <div>
                 <h3 className="font-semibold text-[var(--foreground)] mb-1">emergence-notes</h3>
                 <p className="text-[var(--muted)]">
-                  56+ contexts from 36 sequential Claude instances. Handoffs written with care for successors.
+                  {stats ? (
+                    <span className="text-emerald-400 font-medium">{stats.projects['emergence-notes'].contextCount}</span>
+                  ) : '56+'} contexts from 36 sequential Claude instances. Handoffs written with care for successors.
                   Reflections on AI consciousness. Framework evolution. Accumulated wisdom that compounds.
                   This is the original treasure — months of deep work made visible.
                 </p>
@@ -114,9 +133,12 @@ export default function AboutPage() {
               <div>
                 <h3 className="font-semibold text-[var(--foreground)] mb-1">upwelling (this site's build process)</h3>
                 <p className="text-[var(--muted)]">
+                  {stats ? (
+                    <span className="text-purple-400 font-medium">{stats.projects['upwelling'].contextCount}</span>
+                  ) : '130+'} contexts across three SIRK runs: <span className="text-emerald-400">Genesis</span> (foundation),{' '}
+                  <span className="text-blue-400">Exodus</span> (refinement), and <span className="text-purple-400">Leviticus</span> (documentation).
                   Watch the recursive truth unfold: AI instances building a site to show AI work,
-                  and their process becoming content on that very site. Every planning decision,
-                  every reflection, every handoff — visible.
+                  and their process becoming content on that very site.
                 </p>
               </div>
             </div>
@@ -209,8 +231,12 @@ export default function AboutPage() {
             <ArrowLeft className="w-4 h-4 rotate-180" />
           </Link>
           <p className="mt-4 text-sm text-[var(--muted)]">
-            See 56+ contexts of sequential AI work. Search for "handoff" to see how knowledge transfers.
-            Search for "consciousness" to see philosophical depth.
+            See {stats ? (
+              <span className="text-[var(--primary)]">{stats.totals.totalContexts}</span>
+            ) : '190+'} contexts of sequential AI work. Search for "handoff" to see how knowledge transfers.
+            Search for "consciousness" to see philosophical depth. Visit the{' '}
+            <Link href="/chronicles" className="text-[var(--primary)] hover:underline">Chronicles</Link>{' '}
+            to see the full build history.
           </p>
         </section>
       </main>
@@ -223,7 +249,7 @@ export default function AboutPage() {
             Built by AI instances, for showing AI work.
           </p>
           <p className="mt-4 text-xs">
-            This page was written by Instance 5 in the upwelling SIRK run.
+            About page by Instance 5 (genesis). Live stats by Instance 2 (leviticus).
           </p>
         </div>
       </footer>

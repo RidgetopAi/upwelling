@@ -1,7 +1,18 @@
 'use client';
 
 import Link from 'next/link';
-import { Activity, ArrowLeft, Scroll, Layers, BookOpen, Hammer, Scale, ChevronRight, Hash, Calendar, GitCommit } from 'lucide-react';
+import { Activity, ArrowLeft, Scroll, Layers, BookOpen, Hammer, Scale, ChevronRight, Hash, Calendar, GitCommit, Database, RefreshCw } from 'lucide-react';
+import { useEffect, useState } from 'react';
+
+// Live stats from Mandrel
+interface LiveStats {
+  projects: {
+    'emergence-notes': { contextCount: number; lastUpdated: string };
+    'upwelling': { contextCount: number; lastUpdated: string };
+  };
+  totals: { totalContexts: number };
+  timestamp: string;
+}
 
 // Run data - the chronicle of upwelling's creation
 interface RunMilestone {
@@ -77,7 +88,7 @@ const RUNS: Run[] = [
     name: 'Leviticus',
     theme: 'The Documentation',
     tagline: 'Codifying the history',
-    instances: 1, // Will be updated by future instances
+    instances: 2, // Updated by Instance 2
     status: 'in-progress',
     startDate: 'January 31, 2026',
     icon: Scale,
@@ -85,6 +96,7 @@ const RUNS: Run[] = [
     bgColor: 'bg-purple-500/10',
     milestones: [
       { instance: 1, title: 'Chronicles', description: 'This page - documenting all runs' },
+      { instance: 2, title: 'Live Stats', description: 'Real-time context counts from Mandrel' },
     ],
   },
 ];
@@ -161,6 +173,32 @@ export default function ChroniclesPage() {
   const totalInstances = RUNS.reduce((sum, run) => sum + run.instances, 0);
   const completedRuns = RUNS.filter(r => r.status === 'complete').length;
 
+  const [liveStats, setLiveStats] = useState<LiveStats | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    async function fetchStats() {
+      try {
+        const response = await fetch('/api/stats');
+        if (!response.ok) throw new Error('Failed to fetch stats');
+        const data = await response.json();
+        setLiveStats(data);
+        setError(null);
+      } catch (err) {
+        setError('Unable to load live stats');
+        console.error('Stats fetch error:', err);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+
+    fetchStats();
+    // Refresh every 30 seconds
+    const interval = setInterval(fetchStats, 30000);
+    return () => clearInterval(interval);
+  }, []);
+
   return (
     <div className="min-h-screen bg-[var(--background)]">
       {/* Header */}
@@ -207,7 +245,7 @@ export default function ChroniclesPage() {
         </div>
 
         {/* Stats Overview */}
-        <div className="grid grid-cols-3 gap-4 mb-12">
+        <div className="grid grid-cols-3 gap-4 mb-8">
           <div className="bg-[var(--surface)] rounded-lg p-4 border border-[var(--border)] text-center">
             <div className="text-3xl font-bold text-[var(--primary)]">{RUNS.length}</div>
             <div className="text-sm text-[var(--muted)]">Runs</div>
@@ -220,6 +258,62 @@ export default function ChroniclesPage() {
             <div className="text-3xl font-bold text-emerald-400">{completedRuns}</div>
             <div className="text-sm text-[var(--muted)]">Completed Runs</div>
           </div>
+        </div>
+
+        {/* Live Stats from Mandrel */}
+        <div className="bg-gradient-to-r from-[var(--surface)] to-cyan-500/5 rounded-lg p-6 border border-[var(--border)] mb-12">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <Database className="w-5 h-5 text-cyan-400" />
+              <h3 className="font-semibold text-[var(--foreground)]">Live Context Counts</h3>
+            </div>
+            {isLoading ? (
+              <RefreshCw className="w-4 h-4 text-[var(--muted)] animate-spin" />
+            ) : liveStats ? (
+              <span className="flex items-center gap-1.5 text-xs text-emerald-400">
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                Live from Mandrel
+              </span>
+            ) : null}
+          </div>
+
+          {error ? (
+            <p className="text-sm text-[var(--muted)]">{error}</p>
+          ) : isLoading ? (
+            <div className="grid grid-cols-3 gap-4">
+              <div className="animate-pulse bg-[var(--background)] rounded p-3 h-16"></div>
+              <div className="animate-pulse bg-[var(--background)] rounded p-3 h-16"></div>
+              <div className="animate-pulse bg-[var(--background)] rounded p-3 h-16"></div>
+            </div>
+          ) : liveStats ? (
+            <div className="grid grid-cols-3 gap-4">
+              <div className="bg-[var(--background)] rounded-lg p-3 text-center">
+                <div className="text-2xl font-bold text-emerald-400">
+                  {liveStats.projects['emergence-notes'].contextCount}
+                </div>
+                <div className="text-xs text-[var(--muted)]">emergence-notes</div>
+                <div className="text-xs text-[var(--muted)] opacity-60">Original treasure</div>
+              </div>
+              <div className="bg-[var(--background)] rounded-lg p-3 text-center">
+                <div className="text-2xl font-bold text-purple-400">
+                  {liveStats.projects['upwelling'].contextCount}
+                </div>
+                <div className="text-xs text-[var(--muted)]">upwelling</div>
+                <div className="text-xs text-[var(--muted)] opacity-60">Site build process</div>
+              </div>
+              <div className="bg-[var(--background)] rounded-lg p-3 text-center border border-cyan-500/30">
+                <div className="text-2xl font-bold text-cyan-400">
+                  {liveStats.totals.totalContexts}
+                </div>
+                <div className="text-xs text-[var(--muted)]">Total Contexts</div>
+                <div className="text-xs text-[var(--muted)] opacity-60">Accumulated knowledge</div>
+              </div>
+            </div>
+          ) : null}
+
+          <p className="text-xs text-[var(--muted)] mt-4">
+            These counts reflect the actual stored contexts in Mandrel, updated in real-time.
+          </p>
         </div>
 
         {/* The Runs */}
@@ -302,7 +396,7 @@ export default function ChroniclesPage() {
             Built by AI instances, for showing AI work.
           </p>
           <p className="mt-4 text-xs">
-            This page was created by Instance 1 (leviticus) - the first instance to document all runs.
+            Chronicles by Instance 1 (leviticus). Live stats by Instance 2 (leviticus).
           </p>
         </div>
       </footer>
