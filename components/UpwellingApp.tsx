@@ -353,7 +353,7 @@ export function UpwellingApp() {
               : 'Viewing upwelling: The build process for this site'}
           </p>
           <p className="mt-2 text-xs">
-            Deep linking by Instance 13 • Live updates by Instance 15 • Sound by Instance 17 • Bug fix by Instance 18 • Swimlanes by Instance 19 • Genesis by Instance 20 • Force layout by Instance 2 (exodus) • Playback by Instance 3 (exodus) • Instance counting fix by Instance 4 (exodus) • Playback controls by Instance 5 (exodus) • Playback sounds by Instance 6 (exodus)
+            Deep linking by Instance 13 • Live updates by Instance 15 • Sound by Instance 17 • Bug fix by Instance 18 • Swimlanes by Instance 19 • Genesis by Instance 20 • Force layout by Instance 2 (exodus) • Playback by Instance 3 (exodus) • Instance counting fix by Instance 4 (exodus) • Playback controls by Instance 5 (exodus) • Playback sounds by Instance 6 (exodus) • Volume control by Instance 7 (exodus)
           </p>
         </div>
       </footer>

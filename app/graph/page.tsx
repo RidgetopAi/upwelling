@@ -844,6 +844,7 @@ function GraphPageContent() {
   const [playbackIndex, setPlaybackIndex] = useState<number | null>(null);
   const [playbackSpeed, setPlaybackSpeed] = useState<number>(1); // 0.5, 1, 2, or 4
   const [playbackSoundEnabled, setPlaybackSoundEnabled] = useState(false);
+  const [playbackVolume, setPlaybackVolume] = useState<number>(1); // 0 to 1
   const playbackIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const playbackSoundRef = useRef(getPlaybackSound());
 
@@ -853,6 +854,7 @@ function GraphPageContent() {
   // Initialize playback sound state from localStorage on mount
   useEffect(() => {
     setPlaybackSoundEnabled(playbackSoundRef.current.isEnabled());
+    setPlaybackVolume(playbackSoundRef.current.getVolume());
   }, []);
 
   // Track if we're initializing from URL (to avoid resetting state on first load)
@@ -1269,12 +1271,28 @@ function GraphPageContent() {
             }
           }
           break;
+
+        case 'v':
+          // Cycle volume (only when sound is enabled and playback is active)
+          if (!e.metaKey && !e.ctrlKey && playbackIndex !== null && playbackSoundEnabled) {
+            e.preventDefault();
+            // Cycle through: 0.25 -> 0.5 -> 0.75 -> 1 -> 0.25
+            const volumeSteps = [0.25, 0.5, 0.75, 1];
+            const currentIdx = volumeSteps.findIndex(v => Math.abs(v - playbackVolume) < 0.1);
+            const nextIdx = (currentIdx + 1) % volumeSteps.length;
+            const newVolume = volumeSteps[nextIdx];
+            setPlaybackVolume(newVolume);
+            playbackSoundRef.current.setVolume(newVolume);
+            // Play a sample so user hears the new volume
+            playbackSoundRef.current.playTest();
+          }
+          break;
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [visibleNodes, focusedNodeIndex, selectedNode, selectedNodeData, handleSearchChange, handleNodeSelect, handleLayoutChange, layout, router, playbackIndex, isPlaying, startPlayback, pausePlayback, resetPlayback, playbackSoundEnabled]);
+  }, [visibleNodes, focusedNodeIndex, selectedNode, selectedNodeData, handleSearchChange, handleNodeSelect, handleLayoutChange, layout, router, playbackIndex, isPlaying, startPlayback, pausePlayback, resetPlayback, playbackSoundEnabled, playbackVolume]);
 
   return (
     <div className="min-h-screen bg-[var(--background)]">
@@ -1573,34 +1591,52 @@ function GraphPageContent() {
                 </div>
               )}
 
-              {/* Sound Toggle - show when playback is active */}
+              {/* Sound Toggle and Volume - show when playback is active */}
               {playbackIndex !== null && (
-                <button
-                  onClick={() => {
-                    const newState = !playbackSoundEnabled;
-                    setPlaybackSoundEnabled(newState);
-                    playbackSoundRef.current.setEnabled(newState);
-                    // Play a test tone when enabling so user knows what to expect
-                    if (newState) {
-                      playbackSoundRef.current.playTest();
-                    }
-                  }}
-                  className={cn(
-                    'flex items-center gap-1 px-1.5 py-1 rounded-md text-xs transition-colors',
-                    playbackSoundEnabled
-                      ? 'bg-amber-500/20 text-amber-500 hover:bg-amber-500/30'
-                      : 'text-[var(--muted)] hover:text-[var(--foreground)] hover:bg-[var(--surface)]'
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => {
+                      const newState = !playbackSoundEnabled;
+                      setPlaybackSoundEnabled(newState);
+                      playbackSoundRef.current.setEnabled(newState);
+                      // Play a test tone when enabling so user knows what to expect
+                      if (newState) {
+                        playbackSoundRef.current.playTest();
+                      }
+                    }}
+                    className={cn(
+                      'flex items-center gap-1 px-1.5 py-1 rounded-md text-xs transition-colors',
+                      playbackSoundEnabled
+                        ? 'bg-amber-500/20 text-amber-500 hover:bg-amber-500/30'
+                        : 'text-[var(--muted)] hover:text-[var(--foreground)] hover:bg-[var(--surface)]'
+                    )}
+                    title={playbackSoundEnabled
+                      ? 'Sound enabled - each context type has a distinct tone (press S)'
+                      : 'Sound disabled - click to hear context types (press S)'}
+                  >
+                    {playbackSoundEnabled ? (
+                      <Volume2 className="w-3.5 h-3.5" />
+                    ) : (
+                      <VolumeX className="w-3.5 h-3.5" />
+                    )}
+                  </button>
+                  {/* Volume slider - only show when sound is enabled */}
+                  {playbackSoundEnabled && (
+                    <input
+                      type="range"
+                      min={0}
+                      max={100}
+                      value={Math.round(playbackVolume * 100)}
+                      onChange={(e) => {
+                        const newVolume = parseInt(e.target.value, 10) / 100;
+                        setPlaybackVolume(newVolume);
+                        playbackSoundRef.current.setVolume(newVolume);
+                      }}
+                      className="w-16 h-1 bg-[var(--border)] rounded-lg appearance-none cursor-pointer accent-amber-500"
+                      title={`Volume: ${Math.round(playbackVolume * 100)}% (press V to cycle)`}
+                    />
                   )}
-                  title={playbackSoundEnabled
-                    ? 'Sound enabled - each context type has a distinct tone (press S)'
-                    : 'Sound disabled - click to hear context types (press S)'}
-                >
-                  {playbackSoundEnabled ? (
-                    <Volume2 className="w-3.5 h-3.5" />
-                  ) : (
-                    <VolumeX className="w-3.5 h-3.5" />
-                  )}
-                </button>
+                </div>
               )}
             </div>
             {/* Share Link Button */}
@@ -1743,6 +1779,10 @@ function GraphPageContent() {
               <kbd className="px-2 py-0.5 bg-[var(--surface)] border border-[var(--border)] rounded text-xs font-mono">S</kbd>
               <span className="text-[var(--muted)]">Toggle sound</span>
             </div>
+            <div className="flex items-center gap-2">
+              <kbd className="px-2 py-0.5 bg-[var(--surface)] border border-[var(--border)] rounded text-xs font-mono">V</kbd>
+              <span className="text-[var(--muted)]">Cycle volume</span>
+            </div>
           </div>
 
           <h3 className="text-lg font-semibold text-[var(--foreground)] mt-8">
@@ -1774,9 +1814,46 @@ function GraphPageContent() {
             <span className="text-[var(--foreground)]">Scrubber:</span> The slider lets you jump to any point in the timeline. Drag it to see the graph at any moment—watch how connections form as you progress, or jump to the end and scrub backwards to see what came before.
           </p>
           <p className="text-[var(--muted)] leading-relaxed mt-2">
-            <span className="text-[var(--foreground)]">Sound:</span> Click the speaker icon or press <kbd className="px-1.5 py-0.5 bg-[var(--surface)] border border-[var(--border)] rounded text-xs font-mono">S</kbd> to enable playback sounds. Each context type has a distinct tone: handoffs sound like rising progressions (passing forward), reflections are bell-like (contemplative), planning is a short beep (purposeful), decisions are bright pings (decisive), and discussions are soft low tones (conversational). Close your eyes and hear the collaboration unfold.
+            <span className="text-[var(--foreground)]">Sound:</span> Click the speaker icon or press <kbd className="px-1.5 py-0.5 bg-[var(--surface)] border border-[var(--border)] rounded text-xs font-mono">S</kbd> to enable playback sounds. Each context type has a distinct tone. Press <kbd className="px-1.5 py-0.5 bg-[var(--surface)] border border-[var(--border)] rounded text-xs font-mono">V</kbd> to cycle through volume levels, or use the slider to fine-tune.
           </p>
-          <p className="text-[var(--muted)] leading-relaxed mt-2">
+
+          {/* Sound preview - click buttons to hear each type */}
+          <div className="mt-4 p-4 bg-[var(--surface)] border border-[var(--border)] rounded-lg">
+            <p className="text-sm text-[var(--foreground)] font-medium mb-3">Preview context sounds (click to hear):</p>
+            <div className="flex flex-wrap gap-2">
+              {[
+                { type: 'handoff', label: 'Handoff', color: 'bg-blue-500', desc: 'Rising progression' },
+                { type: 'reflections', label: 'Reflections', color: 'bg-purple-500', desc: 'Bell-like tone' },
+                { type: 'planning', label: 'Planning', color: 'bg-green-500', desc: 'Decisive beep' },
+                { type: 'decision', label: 'Decision', color: 'bg-amber-500', desc: 'Bright ping' },
+                { type: 'discussion', label: 'Discussion', color: 'bg-slate-400', desc: 'Soft tone' },
+                { type: 'completion', label: 'Completion', color: 'bg-emerald-500', desc: 'Major triad' },
+                { type: 'milestone', label: 'Milestone', color: 'bg-yellow-500', desc: 'Fanfare' },
+              ].map(({ type, label, color, desc }) => (
+                <button
+                  key={type}
+                  onClick={() => {
+                    // Temporarily enable sound for preview
+                    const wasEnabled = playbackSoundRef.current.isEnabled();
+                    playbackSoundRef.current.setEnabled(true);
+                    playbackSoundRef.current.playForType(type, 1);
+                    // Restore previous state after a short delay
+                    if (!wasEnabled) {
+                      setTimeout(() => playbackSoundRef.current.setEnabled(false), 100);
+                    }
+                  }}
+                  className="group flex items-center gap-2 px-3 py-2 bg-[var(--background)] border border-[var(--border)] rounded-lg hover:border-[var(--primary)] transition-colors"
+                  title={desc}
+                >
+                  <span className={cn('w-3 h-3 rounded-full', color)} />
+                  <span className="text-sm text-[var(--foreground)]">{label}</span>
+                  <span className="text-xs text-[var(--muted)] hidden sm:inline">{desc}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <p className="text-[var(--muted)] leading-relaxed mt-4">
             This is the accumulation of knowledge made visible—and audible. You can watch sequential instances building on each other, see when the graph becomes densely connected, hear the rhythm of different context types, and understand how collaboration compounds.
           </p>
         </div>
@@ -1787,7 +1864,7 @@ function GraphPageContent() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center text-[var(--muted)] text-sm">
           <p>Upwelling: Deep knowledge rising to the surface</p>
           <p className="mt-2 text-xs">
-            Graph by Instance 8 • Search/filter by Instance 10 • Deep linking by Instance 11 • Timeline layout by Instance 14 • Swimlanes by Instance 19 • Force layout by Instance 2 (exodus) • Playback by Instance 3 (exodus) • Enhanced search by Instance 4 (exodus) • Playback controls by Instance 5 (exodus) • Playback sounds by Instance 6 (exodus)
+            Graph by Instance 8 • Search/filter by Instance 10 • Deep linking by Instance 11 • Timeline layout by Instance 14 • Swimlanes by Instance 19 • Force layout by Instance 2 (exodus) • Playback by Instance 3 (exodus) • Enhanced search by Instance 4 (exodus) • Playback controls by Instance 5 (exodus) • Playback sounds by Instance 6 (exodus) • Volume control by Instance 7 (exodus)
           </p>
         </div>
       </footer>
