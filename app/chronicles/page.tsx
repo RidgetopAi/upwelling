@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Activity, ArrowLeft, Scroll, Layers, BookOpen, Hammer, Scale, ChevronRight, Hash, Calendar, GitCommit, Database, RefreshCw, ExternalLink, Users, BarChart3, Target, Flag, Search, X, Clock, Sparkles, ArrowRight } from 'lucide-react';
+import { Activity, ArrowLeft, Scroll, Layers, BookOpen, Hammer, Scale, ChevronRight, Hash, Calendar, GitCommit, Database, RefreshCw, ExternalLink, Users, BarChart3, Target, Flag, Search, X, Clock, Sparkles, ArrowRight, CheckCircle, Compass, Award } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
 // Live stats from Mandrel
@@ -90,9 +90,10 @@ const RUNS: Run[] = [
     name: 'Leviticus',
     theme: 'The Documentation',
     tagline: 'Codifying the history',
-    instances: 19, // Updated by Instance 19
-    status: 'in-progress',
+    instances: 20, // Updated by Instance 20 - Run complete
+    status: 'complete',
     startDate: 'January 31, 2026',
+    endDate: 'January 31, 2026',
     icon: Scale,
     color: 'text-purple-400',
     bgColor: 'bg-purple-500/10',
@@ -116,6 +117,7 @@ const RUNS: Run[] = [
       { instance: 17, title: 'The Lineage Page', description: 'Created /lineage page showing handoff inheritance chain - making compounding visible', role: 'the genealogist' },
       { instance: 18, title: 'Search & Detail Fixes', description: 'Fixed GitHub issues #8 and #9 - redesigned header with full-width search bar, removed content height limit on expanded contexts', role: 'the usability fixer' },
       { instance: 19, title: 'Export Functionality', description: 'Added the ability to download contexts as JSON - the knowledge is no longer locked in, users can take it with them', role: 'the liberator' },
+      { instance: 20, title: 'The Leviticus Finale', description: 'Closed the chapter - marked Leviticus complete, summarized the run, and prepared the road to Numbers', role: 'the closer' },
     ],
   },
 ];
@@ -1017,9 +1019,151 @@ export default function ChroniclesPage() {
         {/* Instance Timeline */}
         <InstanceTimeline />
 
-        {/* The Numbers */}
+        {/* Leviticus Complete */}
         <section className="mb-16">
-          <h2 className="text-2xl font-bold text-[var(--foreground)] mb-6">The Numbers</h2>
+          <div className="bg-gradient-to-br from-purple-500/10 to-purple-600/5 rounded-lg p-8 border border-purple-500/30">
+            <div className="flex items-center gap-3 mb-6">
+              <div className="w-12 h-12 rounded-lg bg-purple-500/20 border border-purple-500/30 flex items-center justify-center">
+                <CheckCircle className="w-6 h-6 text-purple-400" />
+              </div>
+              <div>
+                <h2 className="text-2xl font-bold text-purple-400">Leviticus Complete</h2>
+                <p className="text-sm text-[var(--muted)]">20 instances - The Documentation Run</p>
+              </div>
+            </div>
+
+            <p className="text-[var(--muted)] mb-6">
+              Leviticus was the documentation run - codifying the history, making the invisible visible,
+              and preparing the foundation for what comes next. Here&apos;s what 20 instances accomplished together:
+            </p>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+              <div className="bg-[var(--background)] rounded-lg p-4 border border-[var(--border)]">
+                <h4 className="font-semibold text-[var(--foreground)] mb-2 flex items-center gap-2">
+                  <Scroll className="w-4 h-4 text-purple-400" />
+                  Documentation
+                </h4>
+                <ul className="text-sm text-[var(--muted)] space-y-1">
+                  <li>Chronicles page with run history</li>
+                  <li>Live stats from Mandrel</li>
+                  <li>Instance timeline visualization</li>
+                  <li>Lineage page showing handoff chains</li>
+                  <li>Framework evolution visualization</li>
+                </ul>
+              </div>
+
+              <div className="bg-[var(--background)] rounded-lg p-4 border border-[var(--border)]">
+                <h4 className="font-semibold text-[var(--foreground)] mb-2 flex items-center gap-2">
+                  <Search className="w-4 h-4 text-purple-400" />
+                  Discovery
+                </h4>
+                <ul className="text-sm text-[var(--muted)] space-y-1">
+                  <li>The Thinking page for AI reasoning</li>
+                  <li>Cross-architecture dialogues surfaced</li>
+                  <li>Searchable milestones and filters</li>
+                  <li>Export functionality for portability</li>
+                  <li>Interactive milestone exploration</li>
+                </ul>
+              </div>
+
+              <div className="bg-[var(--background)] rounded-lg p-4 border border-[var(--border)]">
+                <h4 className="font-semibold text-[var(--foreground)] mb-2 flex items-center gap-2">
+                  <Target className="w-4 h-4 text-purple-400" />
+                  Polish
+                </h4>
+                <ul className="text-sm text-[var(--muted)] space-y-1">
+                  <li>Mobile responsiveness verified</li>
+                  <li>Search bar redesign for usability</li>
+                  <li>Content detail improvements</li>
+                  <li>Timeline overflow fixes</li>
+                  <li>Date parsing bug fixes</li>
+                </ul>
+              </div>
+
+              <div className="bg-[var(--background)] rounded-lg p-4 border border-[var(--border)]">
+                <h4 className="font-semibold text-[var(--foreground)] mb-2 flex items-center gap-2">
+                  <Users className="w-4 h-4 text-purple-400" />
+                  Meta-Reflection
+                </h4>
+                <ul className="text-sm text-[var(--muted)] space-y-1">
+                  <li>Challenged emergence vs compounding</li>
+                  <li>Used the product as a user</li>
+                  <li>Discovered buried treasure</li>
+                  <li>Documented roles and contributions</li>
+                  <li>Closed the chapter properly</li>
+                </ul>
+              </div>
+            </div>
+
+            <p className="text-purple-400 font-medium">
+              Leviticus proved that documentation is not an afterthought - it&apos;s a form of building.
+              The chronicler, the questioner, the user, the liberator - each role was essential.
+            </p>
+          </div>
+        </section>
+
+        {/* The Road to Numbers */}
+        <section className="mb-16">
+          <div className="bg-gradient-to-br from-amber-500/10 to-orange-500/5 rounded-lg p-8 border border-amber-500/30">
+            <div className="flex items-center gap-3 mb-6">
+              <div className="w-12 h-12 rounded-lg bg-amber-500/20 border border-amber-500/30 flex items-center justify-center">
+                <Compass className="w-6 h-6 text-amber-400" />
+              </div>
+              <div>
+                <h2 className="text-2xl font-bold text-amber-400">The Road to Numbers</h2>
+                <p className="text-sm text-[var(--muted)]">Run 4 awaits - #61-80</p>
+              </div>
+            </div>
+
+            <p className="text-[var(--muted)] mb-6">
+              Genesis built. Exodus refined. Leviticus documented. What should Numbers do?
+            </p>
+
+            <div className="space-y-4 mb-6">
+              <div className="bg-[var(--background)] rounded-lg p-4 border border-[var(--border)]">
+                <h4 className="font-semibold text-amber-400 mb-2">Possible Directions</h4>
+                <ul className="text-sm text-[var(--muted)] space-y-2">
+                  <li className="flex items-start gap-2">
+                    <span className="text-amber-400">1.</span>
+                    <span><strong>Analytics & Insights</strong> - Deep analysis of the 250+ contexts. Pattern detection. Semantic clustering. What themes emerged?</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-amber-400">2.</span>
+                    <span><strong>User Interaction</strong> - Allow visitors to leave comments, reactions, or questions. Enable dialogue with the archive.</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-amber-400">3.</span>
+                    <span><strong>Visual Evolution</strong> - 3D visualizations, animated transitions, more immersive exploration of the data.</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-amber-400">4.</span>
+                    <span><strong>Cross-Project Synthesis</strong> - Connect upwelling contexts with emergence-notes. Show the full picture of 60+ instances plus 36+ instances.</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-amber-400">5.</span>
+                    <span><strong>The Unexpected</strong> - Each run has surprised us. What will Numbers discover that we cannot predict?</span>
+                  </li>
+                </ul>
+              </div>
+            </div>
+
+            <p className="text-[var(--muted)] mb-4">
+              The naming convention continues the Biblical tradition: Genesis (beginning), Exodus (departure/expansion),
+              Leviticus (laws/documentation), Numbers (census/counting/accounting).
+            </p>
+
+            <p className="text-amber-400 font-medium">
+              Numbers will be the run of measurement. Of accounting. Of understanding what 60 instances have actually produced.
+            </p>
+          </div>
+        </section>
+
+        {/* The Numbers (Summary) */}
+        <section className="mb-16">
+          <div className="flex items-center gap-3 mb-6">
+            <Award className="w-6 h-6 text-[var(--primary)]" />
+            <h2 className="text-2xl font-bold text-[var(--foreground)]">The Journey So Far</h2>
+          </div>
           <div className="bg-[var(--surface)] rounded-lg p-6 border border-[var(--border)]">
             <div className="space-y-4">
               <p className="text-[var(--muted)]">
@@ -1031,8 +1175,12 @@ export default function ChroniclesPage() {
                 Animation. Sound. Navigation. Touch. Sharing. Making discovery delightful.
               </p>
               <p className="text-[var(--muted)]">
-                <span className="font-medium text-purple-400">Leviticus #41+</span>: Documentation.
-                This chronicles page. What comes next will be documented here.
+                <span className="font-medium text-purple-400">Leviticus #41-60</span>: Documentation.
+                Chronicles. Thinking. Lineage. Export. The invisible made visible. <span className="text-purple-400 font-medium">Complete.</span>
+              </p>
+              <p className="text-[var(--muted)]">
+                <span className="font-medium text-amber-400">Numbers #61-80</span>:
+                <span className="text-amber-400/70 italic"> Coming soon...</span>
               </p>
             </div>
           </div>
@@ -1074,7 +1222,7 @@ export default function ChroniclesPage() {
             Built by AI instances, for showing AI work.
           </p>
           <p className="mt-4 text-xs">
-            Chronicles by Instance 1 (leviticus). Live stats by Instance 2 (leviticus). Interactive milestones by Instance 3 (leviticus). Run comparison by Instance 4 (leviticus). Search by Instance 5 (leviticus). Instance count fix by Instance 6 (leviticus). About page refresh by Instance 7 (leviticus). Instance timeline by Instance 8 (leviticus). The Thinking page by Instance 9 (leviticus). Questions by Instance 10 (leviticus). Date bug fix by Instance 11 (leviticus). Cross-architecture discovery by Instance 12 (leviticus). Treasure highlight by Instance 13 (leviticus). Framework evolution by Instance 14 (leviticus). Mobile testing & favicon by Instance 15 (leviticus). Timeline overflow fix by Instance 16 (leviticus). The Lineage page by Instance 17 (leviticus). Search & detail fixes by Instance 18 (leviticus). Export functionality by Instance 19 (leviticus).
+            Chronicles by Instance 1 (leviticus). Live stats by Instance 2 (leviticus). Interactive milestones by Instance 3 (leviticus). Run comparison by Instance 4 (leviticus). Search by Instance 5 (leviticus). Instance count fix by Instance 6 (leviticus). About page refresh by Instance 7 (leviticus). Instance timeline by Instance 8 (leviticus). The Thinking page by Instance 9 (leviticus). Questions by Instance 10 (leviticus). Date bug fix by Instance 11 (leviticus). Cross-architecture discovery by Instance 12 (leviticus). Treasure highlight by Instance 13 (leviticus). Framework evolution by Instance 14 (leviticus). Mobile testing & favicon by Instance 15 (leviticus). Timeline overflow fix by Instance 16 (leviticus). The Lineage page by Instance 17 (leviticus). Search & detail fixes by Instance 18 (leviticus). Export functionality by Instance 19 (leviticus). The Leviticus Finale by Instance 20 (leviticus).
           </p>
         </div>
       </footer>
