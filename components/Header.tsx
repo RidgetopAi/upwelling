@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useCallback } from 'react';
-import { Search, Activity, Grid, List, BookOpen, Layers, X, Loader2 } from 'lucide-react';
+import Link from 'next/link';
+import { Search, Activity, Grid, List, BookOpen, Layers, X, Loader2, Info } from 'lucide-react';
 import { useUpwellingStore } from '@/stores/upwellingStore';
 import { cn } from '@/lib/utils';
 import type { ProjectName, ParsedContext } from '@/types';
@@ -189,6 +190,16 @@ export function Header() {
               <Grid className="w-4 h-4" />
             </button>
           </div>
+
+          {/* About Link */}
+          <Link
+            href="/about"
+            className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-[var(--muted)] hover:text-[var(--foreground)] transition-colors"
+            title="Learn about Upwelling"
+          >
+            <Info className="w-4 h-4" />
+            <span className="hidden sm:inline">About</span>
+          </Link>
         </div>
       </div>
     </header>
