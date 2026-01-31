@@ -96,7 +96,8 @@ function parseProcessSections(content: string): ProcessSection[] {
   const sections: ProcessSection[] = [];
 
   // Match markdown headers (## or ###) that look like process sections
-  const sectionPattern = /^(#{2,3})\s+(.+?)(?=\n|$)([\s\S]*?)(?=\n#{2,3}\s|\n---\s*$|$)/gm;
+  // Fixed regex: use negative lookahead instead of $ in lookahead (which matches end of line in multiline mode)
+  const sectionPattern = /^(#{2,3})\s+(.+)\n((?:(?!^#{2,3}\s|^---\s*$)[\s\S])*)/gm;
 
   let lastEnd = 0;
   let match;

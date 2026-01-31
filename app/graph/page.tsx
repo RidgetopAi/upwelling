@@ -839,10 +839,11 @@ function GraphPageContent() {
     const query = searchQuery.toLowerCase();
     const matching = new Set<number>();
     for (const node of graph.nodes) {
-      // Match against role, label, or instance number
+      // Match against role, label, type, or instance number
       if (
         node.role?.toLowerCase().includes(query) ||
         node.label.toLowerCase().includes(query) ||
+        node.type.toLowerCase().includes(query) ||
         node.id.toString() === query
       ) {
         matching.add(node.id);
@@ -1017,7 +1018,7 @@ function GraphPageContent() {
                   type="text"
                   value={searchQuery}
                   onChange={(e) => handleSearchChange(e.target.value)}
-                  placeholder="Search by role or instance number... (press /)"
+                  placeholder="Search role, type, or instance #... (press /)"
                   className="w-full pl-10 pr-8 py-2 bg-[var(--background)] border border-[var(--border)] rounded-lg text-sm text-[var(--foreground)] placeholder:text-[var(--muted)] focus:outline-none focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent"
                 />
                 {searchQuery && (
@@ -1181,7 +1182,7 @@ function GraphPageContent() {
             <span className="text-xs hidden md:inline">
               {searchQuery || typeFilter !== 'all'
                 ? 'Filtered nodes are highlighted. Click to select.'
-                : 'Click a node or use arrow keys. Press / to search, F to filter, L to toggle layout.'}
+                : 'Click a node or use arrow keys. Press / to search metadata, F to filter, L to toggle layout. Use main page for content search.'}
             </span>
           </div>
         )}
