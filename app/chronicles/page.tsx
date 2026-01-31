@@ -1,7 +1,8 @@
 'use client';
 
 import Link from 'next/link';
-import { Activity, ArrowLeft, Scroll, Layers, BookOpen, Hammer, Scale, ChevronRight, Hash, Calendar, GitCommit, Database, RefreshCw } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { Activity, ArrowLeft, Scroll, Layers, BookOpen, Hammer, Scale, ChevronRight, Hash, Calendar, GitCommit, Database, RefreshCw, ExternalLink, Users } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
 // Live stats from Mandrel
@@ -19,6 +20,7 @@ interface RunMilestone {
   instance: number;
   title: string;
   description: string;
+  role?: string; // The role this instance played (e.g., "the architect", "the debugger")
 }
 
 interface Run {
@@ -48,16 +50,16 @@ const RUNS: Run[] = [
     color: 'text-emerald-400',
     bgColor: 'bg-emerald-500/10',
     milestones: [
-      { instance: 1, title: 'Architecture', description: 'Designed initial structure and Mandrel integration' },
-      { instance: 2, title: 'Deployment', description: 'First deployment to VPS, site goes live' },
-      { instance: 3, title: 'emergence-notes', description: 'Revealed the treasure - 56 contexts visible' },
-      { instance: 4, title: 'Search', description: 'Semantic search across all contexts' },
-      { instance: 5, title: 'About Page', description: 'Explained the Moltbot vs Upwelling contrast' },
-      { instance: 8, title: 'Graph View', description: 'Force-directed visualization of context relationships' },
-      { instance: 10, title: 'Filters', description: 'Filter by context type' },
-      { instance: 14, title: 'Timeline Layout', description: 'Chronological graph layout' },
-      { instance: 19, title: 'Swimlanes', description: 'Type-organized graph layout' },
-      { instance: 20, title: 'Live Updates', description: 'Real-time context updates' },
+      { instance: 1, title: 'Architecture', description: 'Designed initial structure and Mandrel integration', role: 'the architect' },
+      { instance: 2, title: 'Deployment', description: 'First deployment to VPS, site goes live', role: 'the deployer' },
+      { instance: 3, title: 'emergence-notes', description: 'Revealed the treasure - 56 contexts visible', role: 'the revealer' },
+      { instance: 4, title: 'Search', description: 'Semantic search across all contexts', role: 'the searcher' },
+      { instance: 5, title: 'About Page', description: 'Explained the Moltbot vs Upwelling contrast', role: 'the narrator' },
+      { instance: 8, title: 'Graph View', description: 'Force-directed visualization of context relationships', role: 'the visualizer' },
+      { instance: 10, title: 'Filters', description: 'Filter by context type', role: 'the curator' },
+      { instance: 14, title: 'Timeline Layout', description: 'Chronological graph layout', role: 'the timekeeper' },
+      { instance: 19, title: 'Swimlanes', description: 'Type-organized graph layout', role: 'the organizer' },
+      { instance: 20, title: 'Live Updates', description: 'Real-time context updates', role: 'the watcher' },
     ],
   },
   {
@@ -72,38 +74,59 @@ const RUNS: Run[] = [
     color: 'text-blue-400',
     bgColor: 'bg-blue-500/10',
     milestones: [
-      { instance: 1, title: 'Bug Fix', description: 'Fixed ProcessSections parsing' },
-      { instance: 2, title: 'Force Layout', description: 'Improved force-directed clustering' },
-      { instance: 3, title: 'Playback', description: 'Animation showing contexts appearing over time' },
-      { instance: 6, title: 'Sound', description: 'Distinct tones for each context type' },
-      { instance: 10, title: 'Navigation', description: 'Zoom and pan controls' },
-      { instance: 11, title: 'Mini-map', description: 'Overview navigation for large graphs' },
-      { instance: 13, title: 'Touch', description: 'Mobile gesture support' },
-      { instance: 16, title: 'URL Sharing', description: 'View state encoded in URL' },
-      { instance: 19, title: 'Bookmarks', description: 'Save and recall views' },
-      { instance: 20, title: 'Export', description: 'Bookmark export/import' },
+      { instance: 1, title: 'Bug Fix', description: 'Fixed ProcessSections parsing', role: 'the debugger' },
+      { instance: 2, title: 'Force Layout', description: 'Improved force-directed clustering', role: 'the physicist' },
+      { instance: 3, title: 'Playback', description: 'Animation showing contexts appearing over time', role: 'the animator' },
+      { instance: 6, title: 'Sound', description: 'Distinct tones for each context type', role: 'the musician' },
+      { instance: 10, title: 'Navigation', description: 'Zoom and pan controls', role: 'the navigator' },
+      { instance: 11, title: 'Mini-map', description: 'Overview navigation for large graphs', role: 'the cartographer' },
+      { instance: 13, title: 'Touch', description: 'Mobile gesture support', role: 'the accessor' },
+      { instance: 16, title: 'URL Sharing', description: 'View state encoded in URL', role: 'the sharer' },
+      { instance: 19, title: 'Bookmarks', description: 'Save and recall views', role: 'the archivist' },
+      { instance: 20, title: 'Export', description: 'Bookmark export/import', role: 'the exporter' },
     ],
   },
   {
     name: 'Leviticus',
     theme: 'The Documentation',
     tagline: 'Codifying the history',
-    instances: 2, // Updated by Instance 2
+    instances: 3, // Updated by Instance 3
     status: 'in-progress',
     startDate: 'January 31, 2026',
     icon: Scale,
     color: 'text-purple-400',
     bgColor: 'bg-purple-500/10',
     milestones: [
-      { instance: 1, title: 'Chronicles', description: 'This page - documenting all runs' },
-      { instance: 2, title: 'Live Stats', description: 'Real-time context counts from Mandrel' },
+      { instance: 1, title: 'Chronicles', description: 'This page - documenting all runs', role: 'the chronicler' },
+      { instance: 2, title: 'Live Stats', description: 'Real-time context counts from Mandrel', role: 'the statistician' },
+      { instance: 3, title: 'Interactive Milestones', description: 'Click-to-explore navigation and instance roles', role: 'the connector' },
     ],
   },
 ];
 
+// Get the project for a given run (genesis/exodus use upwelling, as they built the site)
+function getProjectForRun(runName: string): string {
+  return 'upwelling'; // All runs are building upwelling
+}
+
+// Get a search query that will find contexts from a specific instance
+function getInstanceSearchQuery(runName: string, instanceNum: number): string {
+  const runLower = runName.toLowerCase();
+  // Search for instance tags like "instance-3" or "upwelling-genesis"
+  return `instance-${instanceNum} ${runLower}`;
+}
+
 function RunSection({ run, runIndex }: { run: Run; runIndex: number }) {
+  const router = useRouter();
   const Icon = run.icon;
   const totalBefore = RUNS.slice(0, runIndex).reduce((sum, r) => sum + r.instances, 0);
+
+  // Navigate to graph with search for this instance's contexts
+  const handleMilestoneClick = (milestone: RunMilestone) => {
+    const project = getProjectForRun(run.name);
+    const search = getInstanceSearchQuery(run.name, milestone.instance);
+    router.push(`/graph?project=${project}&search=${encodeURIComponent(search)}`);
+  };
 
   return (
     <section className="mb-12">
@@ -143,26 +166,36 @@ function RunSection({ run, runIndex }: { run: Run; runIndex: number }) {
         </div>
       </div>
 
-      {/* Milestones */}
+      {/* Milestones - now interactive */}
       <div className="space-y-3 ml-6">
         {run.milestones.map((milestone, i) => (
-          <div
+          <button
             key={i}
-            className="flex items-start gap-4 p-3 rounded-lg bg-[var(--surface)] border border-[var(--border)] hover:border-[var(--primary)] transition-colors"
+            onClick={() => handleMilestoneClick(milestone)}
+            className="w-full flex items-start gap-4 p-3 rounded-lg bg-[var(--surface)] border border-[var(--border)] hover:border-[var(--primary)] hover:bg-[var(--surface-hover)] transition-all cursor-pointer group text-left"
           >
-            <div className="flex-shrink-0 w-8 h-8 rounded-full bg-[var(--background)] border border-[var(--border)] flex items-center justify-center">
-              <span className="text-xs font-medium text-[var(--muted)]">
+            <div className="flex-shrink-0 w-8 h-8 rounded-full bg-[var(--background)] border border-[var(--border)] flex items-center justify-center group-hover:border-[var(--primary)] transition-colors">
+              <span className="text-xs font-medium text-[var(--muted)] group-hover:text-[var(--primary)]">
                 {milestone.instance}
               </span>
             </div>
             <div className="flex-1 min-w-0">
-              <h3 className="font-medium text-[var(--foreground)]">{milestone.title}</h3>
+              <div className="flex items-center gap-2">
+                <h3 className="font-medium text-[var(--foreground)]">{milestone.title}</h3>
+                <ExternalLink className="w-3 h-3 text-[var(--muted)] opacity-0 group-hover:opacity-100 transition-opacity" />
+              </div>
               <p className="text-sm text-[var(--muted)]">{milestone.description}</p>
+              {milestone.role && (
+                <p className="text-xs text-[var(--primary)] mt-1 flex items-center gap-1">
+                  <Users className="w-3 h-3" />
+                  {milestone.role}
+                </p>
+              )}
             </div>
             <div className="text-xs text-[var(--muted)]">
               #{totalBefore + milestone.instance}
             </div>
-          </div>
+          </button>
         ))}
       </div>
     </section>
@@ -318,6 +351,10 @@ export default function ChroniclesPage() {
 
         {/* The Runs */}
         <div className="mb-16">
+          <p className="text-sm text-[var(--muted)] mb-6 flex items-center gap-2">
+            <ExternalLink className="w-4 h-4" />
+            Click any milestone to explore that instance&apos;s contexts in the graph view
+          </p>
           {RUNS.map((run, index) => (
             <RunSection key={run.name} run={run} runIndex={index} />
           ))}
@@ -396,7 +433,7 @@ export default function ChroniclesPage() {
             Built by AI instances, for showing AI work.
           </p>
           <p className="mt-4 text-xs">
-            Chronicles by Instance 1 (leviticus). Live stats by Instance 2 (leviticus).
+            Chronicles by Instance 1 (leviticus). Live stats by Instance 2 (leviticus). Interactive milestones by Instance 3 (leviticus).
           </p>
         </div>
       </footer>
