@@ -3,7 +3,7 @@
 import { Suspense, useEffect, useState, useMemo, useCallback, useRef } from 'react';
 import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, Loader2, Network, BookOpen, Layers, Search, X, Filter, Share2, Check, Circle, ArrowRight, LayoutGrid, Orbit, Play, Pause, RotateCcw, Volume2, VolumeX, HelpCircle } from 'lucide-react';
+import { ArrowLeft, Loader2, Network, BookOpen, Layers, Search, X, Filter, Share2, Check, Circle, ArrowRight, LayoutGrid, Orbit, Play, Pause, RotateCcw, Volume2, VolumeX, HelpCircle, ZoomIn, ZoomOut, Maximize } from 'lucide-react';
 import type { InstanceGraph, ProjectName, GraphNode, GraphEdge, ContextType } from '@/types';
 import { cn, getPlaybackSound } from '@/lib/utils';
 
@@ -304,6 +304,12 @@ interface HoverInfo {
   y: number;
 }
 
+interface ZoomPanState {
+  scale: number;
+  translateX: number;
+  translateY: number;
+}
+
 function GraphVisualization({
   graph,
   selectedNode,
@@ -315,6 +321,8 @@ function GraphVisualization({
   layout,
   visibleNodeIds,
   svgRef,
+  zoomPan,
+  onZoomPan,
 }: {
   graph: InstanceGraph;
   selectedNode: number | null;
@@ -326,6 +334,8 @@ function GraphVisualization({
   layout: LayoutType;
   visibleNodeIds: Set<number> | null; // null = show all, Set = show only these
   svgRef: React.RefObject<SVGSVGElement | null>;
+  zoomPan: ZoomPanState;
+  onZoomPan: (newState: ZoomPanState) => void;
 }) {
   const width = 800;
   const height = 600;
@@ -352,11 +362,95 @@ function GraphVisualization({
   // Check if any filters are active
   const hasActiveFilters = typeFilter !== 'all' || searchQuery.length > 0 || visibleNodeIds !== null;
 
+  // Zoom and pan state
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+
+  // Handle mousewheel zoom
+  const handleWheel = useCallback((e: React.WheelEvent<SVGSVGElement>) => {
+    e.preventDefault();
+    const svg = svgRef.current;
+    if (!svg) return;
+
+    const rect = svg.getBoundingClientRect();
+    const viewBox = svg.viewBox.baseVal;
+
+    // Mouse position relative to SVG viewBox
+    const mouseX = ((e.clientX - rect.left) / rect.width) * viewBox.width;
+    const mouseY = ((e.clientY - rect.top) / rect.height) * viewBox.height;
+
+    // Calculate new scale (zoom in or out)
+    const scaleFactor = e.deltaY > 0 ? 0.9 : 1.1;
+    const newScale = Math.max(0.5, Math.min(4, zoomPan.scale * scaleFactor));
+
+    // Adjust translation to zoom toward mouse position
+    const scaleRatio = newScale / zoomPan.scale;
+    const newTranslateX = mouseX - scaleRatio * (mouseX - zoomPan.translateX);
+    const newTranslateY = mouseY - scaleRatio * (mouseY - zoomPan.translateY);
+
+    onZoomPan({
+      scale: newScale,
+      translateX: newTranslateX,
+      translateY: newTranslateY,
+    });
+  }, [zoomPan, onZoomPan, svgRef]);
+
+  // Handle pan start
+  const handleMouseDown = useCallback((e: React.MouseEvent<SVGSVGElement>) => {
+    // Only start drag on middle mouse button or if target is the SVG background
+    if (e.button === 1 || (e.button === 0 && (e.target as Element).tagName === 'svg')) {
+      setIsDragging(true);
+      setDragStart({ x: e.clientX, y: e.clientY });
+      e.preventDefault();
+    }
+  }, []);
+
+  // Handle pan move
+  const handleMouseMove = useCallback((e: React.MouseEvent<SVGSVGElement>) => {
+    if (!isDragging) return;
+
+    const svg = svgRef.current;
+    if (!svg) return;
+
+    const rect = svg.getBoundingClientRect();
+    const viewBox = svg.viewBox.baseVal;
+
+    // Convert pixel movement to viewBox units
+    const dx = ((e.clientX - dragStart.x) / rect.width) * viewBox.width;
+    const dy = ((e.clientY - dragStart.y) / rect.height) * viewBox.height;
+
+    onZoomPan({
+      ...zoomPan,
+      translateX: zoomPan.translateX + dx / zoomPan.scale,
+      translateY: zoomPan.translateY + dy / zoomPan.scale,
+    });
+
+    setDragStart({ x: e.clientX, y: e.clientY });
+  }, [isDragging, dragStart, zoomPan, onZoomPan, svgRef]);
+
+  // Handle pan end
+  const handleMouseUp = useCallback(() => {
+    setIsDragging(false);
+  }, []);
+
+  // Handle mouse leave
+  const handleMouseLeave = useCallback(() => {
+    setIsDragging(false);
+  }, []);
+
   return (
     <svg
       ref={svgRef}
       viewBox={`0 0 ${width} ${height}`}
-      className="w-full h-auto max-h-[70vh] border border-[var(--border)] rounded-lg bg-[var(--background)]"
+      className={cn(
+        "w-full h-auto max-h-[70vh] border border-[var(--border)] rounded-lg bg-[var(--background)]",
+        isDragging && "cursor-grabbing"
+      )}
+      onWheel={handleWheel}
+      onMouseDown={handleMouseDown}
+      onMouseMove={handleMouseMove}
+      onMouseUp={handleMouseUp}
+      onMouseLeave={handleMouseLeave}
     >
       <defs>
         <marker
@@ -405,6 +499,9 @@ function GraphVisualization({
           }
         `}
       </style>
+
+      {/* Transform group for zoom and pan */}
+      <g transform={`translate(${zoomPan.translateX}, ${zoomPan.translateY}) scale(${zoomPan.scale})`}>
 
       {/* Draw edges */}
       {graph.edges.map((edge, i) => {
@@ -738,6 +835,8 @@ function GraphVisualization({
           </g>
         );
       })()}
+
+      </g>{/* End transform group */}
     </svg>
   );
 }
@@ -906,6 +1005,16 @@ function ShortcutHelpModal({ isOpen, onClose }: { isOpen: boolean; onClose: () =
       ],
     },
     {
+      category: 'Zoom & Pan',
+      items: [
+        { key: '+/=', description: 'Zoom in' },
+        { key: '-', description: 'Zoom out' },
+        { key: '0', description: 'Reset zoom and pan' },
+        { key: 'Scroll', description: 'Mousewheel zoom' },
+        { key: 'Drag', description: 'Pan the view (click and drag on background)' },
+      ],
+    },
+    {
       category: 'Playback',
       items: [
         { key: 'P', description: 'Play / Pause animation' },
@@ -1027,6 +1136,36 @@ function GraphPageContent() {
   const [showShortcutHelp, setShowShortcutHelp] = useState(false);
   const [hoverInfo, setHoverInfo] = useState<HoverInfo | null>(null);
   const svgRef = useRef<SVGSVGElement | null>(null);
+
+  // Zoom and pan state
+  const [zoomPan, setZoomPan] = useState<ZoomPanState>({
+    scale: 1,
+    translateX: 0,
+    translateY: 0,
+  });
+
+  // Zoom control functions
+  const zoomIn = useCallback(() => {
+    setZoomPan(prev => ({
+      ...prev,
+      scale: Math.min(4, prev.scale * 1.2),
+    }));
+  }, []);
+
+  const zoomOut = useCallback(() => {
+    setZoomPan(prev => ({
+      ...prev,
+      scale: Math.max(0.5, prev.scale / 1.2),
+    }));
+  }, []);
+
+  const resetZoom = useCallback(() => {
+    setZoomPan({
+      scale: 1,
+      translateX: 0,
+      translateY: 0,
+    });
+  }, []);
 
   // Playback state
   const [isPlaying, setIsPlaying] = useState(false);
@@ -1487,12 +1626,37 @@ function GraphPageContent() {
           e.preventDefault();
           setShowShortcutHelp(true);
           break;
+
+        case '+':
+        case '=':
+          // Zoom in
+          if (!e.metaKey && !e.ctrlKey) {
+            e.preventDefault();
+            zoomIn();
+          }
+          break;
+
+        case '-':
+          // Zoom out
+          if (!e.metaKey && !e.ctrlKey) {
+            e.preventDefault();
+            zoomOut();
+          }
+          break;
+
+        case '0':
+          // Reset zoom (only without modifier to not interfere with browser shortcuts)
+          if (!e.metaKey && !e.ctrlKey) {
+            e.preventDefault();
+            resetZoom();
+          }
+          break;
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [visibleNodes, focusedNodeIndex, selectedNode, selectedNodeData, handleSearchChange, handleNodeSelect, handleLayoutChange, layout, router, playbackIndex, isPlaying, startPlayback, pausePlayback, resetPlayback, playbackSoundEnabled, playbackVolume, showShortcutHelp]);
+  }, [visibleNodes, focusedNodeIndex, selectedNode, selectedNodeData, handleSearchChange, handleNodeSelect, handleLayoutChange, layout, router, playbackIndex, isPlaying, startPlayback, pausePlayback, resetPlayback, playbackSoundEnabled, playbackVolume, showShortcutHelp, zoomIn, zoomOut, resetZoom]);
 
   return (
     <div className="min-h-screen bg-[var(--background)]">
@@ -1839,6 +2003,38 @@ function GraphPageContent() {
                 </div>
               )}
             </div>
+            {/* Zoom Controls */}
+            <div className="flex items-center gap-1 bg-[var(--background)] rounded-lg p-0.5">
+              <button
+                onClick={zoomOut}
+                className="flex items-center gap-1 px-1.5 py-1 rounded text-xs text-[var(--muted)] hover:text-[var(--foreground)] transition-colors"
+                title="Zoom out (press -)"
+              >
+                <ZoomOut className="w-3 h-3" />
+              </button>
+              <span className="text-xs text-[var(--muted)] font-mono min-w-[3ch] text-center">
+                {Math.round(zoomPan.scale * 100)}%
+              </span>
+              <button
+                onClick={zoomIn}
+                className="flex items-center gap-1 px-1.5 py-1 rounded text-xs text-[var(--muted)] hover:text-[var(--foreground)] transition-colors"
+                title="Zoom in (press + or =)"
+              >
+                <ZoomIn className="w-3 h-3" />
+              </button>
+              <button
+                onClick={resetZoom}
+                className={cn(
+                  "flex items-center gap-1 px-1.5 py-1 rounded text-xs transition-colors",
+                  zoomPan.scale !== 1 || zoomPan.translateX !== 0 || zoomPan.translateY !== 0
+                    ? "text-[var(--primary)] hover:bg-[var(--primary)]/10"
+                    : "text-[var(--muted)] hover:text-[var(--foreground)]"
+                )}
+                title="Reset zoom and pan (press 0)"
+              >
+                <Maximize className="w-3 h-3" />
+              </button>
+            </div>
             {/* Share Link Button */}
             <button
               onClick={copyShareLink}
@@ -1896,6 +2092,8 @@ function GraphPageContent() {
                 layout={layout}
                 visibleNodeIds={visibleNodeIds}
                 svgRef={svgRef}
+                zoomPan={zoomPan}
+                onZoomPan={setZoomPan}
               />
               <NodeTooltip hoverInfo={hoverInfo} svgRef={svgRef} />
             </div>
@@ -1986,6 +2184,14 @@ function GraphPageContent() {
               <kbd className="px-2 py-0.5 bg-[var(--surface)] border border-[var(--border)] rounded text-xs font-mono">V</kbd>
               <span className="text-[var(--muted)]">Cycle volume</span>
             </div>
+            <div className="flex items-center gap-2">
+              <kbd className="px-2 py-0.5 bg-[var(--surface)] border border-[var(--border)] rounded text-xs font-mono">+/-</kbd>
+              <span className="text-[var(--muted)]">Zoom in/out</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <kbd className="px-2 py-0.5 bg-[var(--surface)] border border-[var(--border)] rounded text-xs font-mono">0</kbd>
+              <span className="text-[var(--muted)]">Reset zoom</span>
+            </div>
           </div>
 
           <h3 className="text-lg font-semibold text-[var(--foreground)] mt-8">
@@ -2002,6 +2208,22 @@ function GraphPageContent() {
           </p>
           <p className="text-[var(--muted)] leading-relaxed mt-2">
             <span className="text-[var(--foreground)]">Force</span> layout uses physics simulation where connected nodes attract and all nodes repel. This creates organic clustering—instances that reference each other cluster together, while isolated nodes drift to the periphery. This reveals natural groupings that other layouts miss: which instances form tight collaboration clusters? Which are bridge nodes connecting different groups?
+          </p>
+
+          <h3 className="text-lg font-semibold text-[var(--foreground)] mt-8">
+            Zoom & Pan
+          </h3>
+          <p className="text-[var(--muted)] leading-relaxed mt-3">
+            <span className="text-[var(--foreground)]">Mousewheel zoom:</span> Scroll up to zoom in, scroll down to zoom out. The zoom centers on your mouse position, letting you focus on specific areas of the graph.
+          </p>
+          <p className="text-[var(--muted)] leading-relaxed mt-2">
+            <span className="text-[var(--foreground)]">Drag to pan:</span> Click and drag on the background to move around the graph. Useful when zoomed in to navigate to different parts of the visualization.
+          </p>
+          <p className="text-[var(--muted)] leading-relaxed mt-2">
+            <span className="text-[var(--foreground)]">Keyboard shortcuts:</span> Press <kbd className="px-1.5 py-0.5 bg-[var(--surface)] border border-[var(--border)] rounded text-xs font-mono">+</kbd> or <kbd className="px-1.5 py-0.5 bg-[var(--surface)] border border-[var(--border)] rounded text-xs font-mono">=</kbd> to zoom in, <kbd className="px-1.5 py-0.5 bg-[var(--surface)] border border-[var(--border)] rounded text-xs font-mono">-</kbd> to zoom out, and <kbd className="px-1.5 py-0.5 bg-[var(--surface)] border border-[var(--border)] rounded text-xs font-mono">0</kbd> to reset to default view.
+          </p>
+          <p className="text-[var(--muted)] leading-relaxed mt-2">
+            <span className="text-[var(--foreground)]">Zoom controls:</span> Use the zoom buttons in the toolbar to zoom in, zoom out, or reset. The percentage shows your current zoom level. Zoom ranges from 50% to 400%.
           </p>
 
           <h3 className="text-lg font-semibold text-[var(--foreground)] mt-8">
@@ -2067,7 +2289,7 @@ function GraphPageContent() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center text-[var(--muted)] text-sm">
           <p>Upwelling: Deep knowledge rising to the surface</p>
           <p className="mt-2 text-xs">
-            Graph by Instance 8 • Search/filter by Instance 10 • Deep linking by Instance 11 • Timeline layout by Instance 14 • Swimlanes by Instance 19 • Force layout by Instance 2 (exodus) • Playback by Instance 3 (exodus) • Enhanced search by Instance 4 (exodus) • Playback controls by Instance 5 (exodus) • Playback sounds by Instance 6 (exodus) • Volume control by Instance 7 (exodus) • Keyboard help by Instance 8 (exodus) • Node tooltips by Instance 9 (exodus)
+            Graph by Instance 8 • Search/filter by Instance 10 • Deep linking by Instance 11 • Timeline layout by Instance 14 • Swimlanes by Instance 19 • Force layout by Instance 2 (exodus) • Playback by Instance 3 (exodus) • Enhanced search by Instance 4 (exodus) • Playback controls by Instance 5 (exodus) • Playback sounds by Instance 6 (exodus) • Volume control by Instance 7 (exodus) • Keyboard help by Instance 8 (exodus) • Node tooltips by Instance 9 (exodus) • Zoom/pan by Instance 10 (exodus)
           </p>
         </div>
       </footer>
