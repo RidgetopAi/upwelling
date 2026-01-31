@@ -24,11 +24,11 @@ export function ContextDetail({ context }: ContextDetailProps) {
   const typeColorClass = `context-${context.type}`;
 
   return (
-    <div className="sticky top-8 bg-[var(--surface)] rounded-lg border border-[var(--border)] overflow-hidden animate-fade-in">
+    <div className="lg:sticky lg:top-8 bg-[var(--surface)] lg:rounded-lg lg:border border-[var(--border)] overflow-hidden animate-fade-in lg:max-h-[calc(100vh-6rem)] flex flex-col min-h-screen lg:min-h-0">
       {/* Header */}
       <div
         className={cn(
-          'p-4 border-b border-[var(--border)] border-l-4',
+          'p-4 border-b border-[var(--border)] border-l-4 sticky top-0 bg-[var(--surface)] z-10',
           typeColorClass
         )}
       >
@@ -51,13 +51,16 @@ export function ContextDetail({ context }: ContextDetailProps) {
           </div>
           <button
             onClick={() => selectContext(null)}
-            className="p-1 hover:bg-[var(--background)] rounded transition-colors"
+            className="p-2 hover:bg-[var(--background)] rounded transition-colors"
+            aria-label="Close detail panel"
           >
             <X className="w-5 h-5 text-[var(--muted)]" />
           </button>
         </div>
       </div>
 
+      {/* Scrollable content area */}
+      <div className="overflow-y-auto overscroll-contain flex-1">
       {/* Meta info */}
       <div className="p-4 border-b border-[var(--border)] space-y-3">
         <div className="flex items-center gap-2 text-sm text-[var(--muted)]">
@@ -143,6 +146,7 @@ export function ContextDetail({ context }: ContextDetailProps) {
         </div>
         <ProcessSections content={context.content} />
       </div>
+      </div>{/* End scrollable content area */}
     </div>
   );
 }

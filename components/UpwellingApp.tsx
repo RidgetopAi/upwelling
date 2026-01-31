@@ -129,11 +129,20 @@ export function UpwellingApp() {
             )}
           </div>
 
-          {/* Detail Panel */}
+          {/* Detail Panel - Desktop: sidebar, Mobile: full-screen overlay */}
           {selectedContext && (
-            <div className="lg:col-span-1">
-              <ContextDetail context={selectedContext} />
-            </div>
+            <>
+              {/* Mobile overlay */}
+              <div className="lg:hidden fixed inset-0 z-50 bg-[var(--background)]">
+                <div className="h-full overflow-y-auto overscroll-contain">
+                  <ContextDetail context={selectedContext} />
+                </div>
+              </div>
+              {/* Desktop sidebar */}
+              <div className="hidden lg:block lg:col-span-1">
+                <ContextDetail context={selectedContext} />
+              </div>
+            </>
           )}
         </div>
       </main>
