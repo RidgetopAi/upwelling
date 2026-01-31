@@ -78,3 +78,29 @@ export interface ViewState {
   expandedContextIds: Set<string>;
   view: 'timeline' | 'grid' | 'search';
 }
+
+// Graph types for instance relationship visualization
+export interface GraphNode {
+  id: number; // Instance number
+  label: string;
+  type: ContextType;
+  role?: string;
+  contextCount: number;
+  contextId?: string; // Link to a representative context
+}
+
+export interface GraphEdge {
+  source: number;
+  target: number;
+  type: 'references' | 'builds_on' | 'validates';
+}
+
+export interface InstanceGraph {
+  nodes: GraphNode[];
+  edges: GraphEdge[];
+  metadata: {
+    project: string;
+    totalInstances: number;
+    totalConnections: number;
+  };
+}

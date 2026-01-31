@@ -2,7 +2,7 @@
 
 import { useState, useCallback } from 'react';
 import Link from 'next/link';
-import { Search, Activity, Grid, List, BookOpen, Layers, X, Loader2, Info } from 'lucide-react';
+import { Search, Activity, Grid, List, BookOpen, Layers, X, Loader2, Info, Network } from 'lucide-react';
 import { useUpwellingStore } from '@/stores/upwellingStore';
 import { cn } from '@/lib/utils';
 import type { ProjectName, ParsedContext } from '@/types';
@@ -192,6 +192,16 @@ export function Header() {
             </button>
           </div>
 
+          {/* Graph Link */}
+          <Link
+            href="/graph"
+            className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-[var(--muted)] hover:text-[var(--foreground)] transition-colors"
+            title="Instance relationship graph"
+          >
+            <Network className="w-4 h-4" />
+            <span>Graph</span>
+          </Link>
+
           {/* About Link */}
           <Link
             href="/about"
@@ -242,6 +252,13 @@ export function Header() {
                   <Grid className="w-4 h-4" />
                 </button>
               </div>
+              <Link
+                href="/graph"
+                className="p-1.5 text-[var(--muted)] hover:text-[var(--foreground)] transition-colors"
+                title="Instance relationship graph"
+              >
+                <Network className="w-4 h-4" />
+              </Link>
               <Link
                 href="/about"
                 className="p-1.5 text-[var(--muted)] hover:text-[var(--foreground)] transition-colors"

@@ -112,3 +112,54 @@ export function extractKeyInsights(content: string): string[] {
 
   return insights.slice(0, 5); // Limit to 5 insights
 }
+
+// Extract references to other instances from content
+// Patterns: "FOR INSTANCE X", "Instance X validated", "Instance X's work", etc.
+export function extractInstanceReferences(content: string): number[] {
+  const references = new Set<number>();
+
+  // Patterns for references to other instances
+  const patterns = [
+    /FOR\s+INSTANCE\s+(\d+)/gi,                    // "FOR INSTANCE 5"
+    /Instance\s+(\d+)(?:'s|(?:\s+(?:validated|built|noted|mentioned|found|showed|created|implemented|fixed|added|left|discovered)))/gi,
+    /Instance\s+#?(\d+)\s+(?:work|contribution|insight|handoff|reflection)/gi,
+    /INSTANCE\s+(\d+)\s+(?:TO|HANDOFF)/gi,         // "INSTANCE 5 TO 6"
+    /from\s+Instance\s+#?(\d+)/gi,                  // "from Instance 5"
+    /Instance\s+(\d+)-(\d+)/g,                      // "Instance 1-5" (range)
+    /Instances?\s+(\d+)(?:\s*(?:,|and)\s*(\d+))*/gi, // "Instances 1, 2, and 3"
+  ];
+
+  for (const pattern of patterns) {
+    let match;
+    while ((match = pattern.exec(content)) !== null) {
+      // Handle numeric captures
+      for (let i = 1; i < match.length; i++) {
+        if (match[i]) {
+          const num = parseInt(match[i], 10);
+          if (num > 0 && num < 100) { // Reasonable instance range
+            references.add(num);
+          }
+        }
+      }
+    }
+  }
+
+  return Array.from(references).sort((a, b) => a - b);
+}
+
+// Extract what role/contribution this instance made
+export function extractInstanceRole(content: string): string | undefined {
+  // Look for "I am Instance X - the ..." pattern
+  const roleMatch = content.match(/I\s+am\s+Instance\s+\d+\s*[-–:]\s*(?:the\s+)?([^,.\n]+)/i);
+  if (roleMatch) {
+    return roleMatch[1].trim();
+  }
+
+  // Look for "my role" descriptions
+  const myRoleMatch = content.match(/(?:my\s+role|my\s+contribution)(?:\s+is)?[:\s]+([^,.\n]+)/i);
+  if (myRoleMatch) {
+    return myRoleMatch[1].trim();
+  }
+
+  return undefined;
+}
