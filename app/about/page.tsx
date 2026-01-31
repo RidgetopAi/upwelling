@@ -220,7 +220,7 @@ export default function AboutPage() {
             </p>
 
             <Link
-              href="/?project=emergence-notes&search=cross-architecture"
+              href="/?search=Claude%20GPT-5%20stereoscopic%20WEAVE%20dialogue"
               className="inline-flex items-center gap-2 text-cyan-400 hover:text-cyan-300 transition-colors text-sm font-medium"
             >
               Explore the cross-architecture contexts
