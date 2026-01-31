@@ -3,7 +3,7 @@
 import { Suspense, useEffect, useState, useMemo, useCallback, useRef } from 'react';
 import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, Loader2, Network, BookOpen, Layers, Search, X, Filter, Share2, Check, Circle, ArrowRight, LayoutGrid, Orbit, Play, Pause, RotateCcw, Volume2, VolumeX } from 'lucide-react';
+import { ArrowLeft, Loader2, Network, BookOpen, Layers, Search, X, Filter, Share2, Check, Circle, ArrowRight, LayoutGrid, Orbit, Play, Pause, RotateCcw, Volume2, VolumeX, HelpCircle } from 'lucide-react';
 import type { InstanceGraph, ProjectName, GraphNode, GraphEdge, ContextType } from '@/types';
 import { cn, getPlaybackSound } from '@/lib/utils';
 
@@ -794,6 +794,103 @@ function NodeDetail({ node, graph }: { node: GraphNode; graph: InstanceGraph }) 
   );
 }
 
+// Keyboard Shortcut Help Modal
+function ShortcutHelpModal({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
+  if (!isOpen) return null;
+
+  const shortcuts = [
+    {
+      category: 'Navigation',
+      items: [
+        { key: '/', description: 'Focus search' },
+        { key: '←/→', description: 'Navigate nodes' },
+        { key: '↑/↓', description: 'Navigate nodes' },
+        { key: 'Enter', description: 'View context' },
+        { key: 'Esc', description: 'Clear selection / Close modal' },
+      ],
+    },
+    {
+      category: 'Layout & Filters',
+      items: [
+        { key: 'L', description: 'Cycle layouts (Circular → Timeline → Swimlanes → Force)' },
+        { key: 'F', description: 'Toggle filter panel' },
+      ],
+    },
+    {
+      category: 'Playback',
+      items: [
+        { key: 'P', description: 'Play / Pause animation' },
+        { key: 'R', description: 'Reset playback' },
+        { key: ',', description: 'Decrease speed (0.5x → 1x → 2x → 4x)' },
+        { key: '.', description: 'Increase speed' },
+      ],
+    },
+    {
+      category: 'Sound',
+      items: [
+        { key: 'S', description: 'Toggle playback sound' },
+        { key: 'V', description: 'Cycle volume (25% → 50% → 75% → 100%)' },
+      ],
+    },
+    {
+      category: 'General',
+      items: [
+        { key: '?', description: 'Show this help' },
+      ],
+    },
+  ];
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+      onClick={onClose}
+    >
+      <div
+        className="bg-[var(--surface)] border border-[var(--border)] rounded-xl shadow-xl max-w-lg w-full mx-4 max-h-[80vh] overflow-auto animate-in fade-in zoom-in-95 duration-200"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between px-6 py-4 border-b border-[var(--border)]">
+          <div className="flex items-center gap-3">
+            <HelpCircle className="w-5 h-5 text-[var(--primary)]" />
+            <h2 className="text-lg font-semibold text-[var(--foreground)]">Keyboard Shortcuts</h2>
+          </div>
+          <button
+            onClick={onClose}
+            className="text-[var(--muted)] hover:text-[var(--foreground)] transition-colors"
+            title="Close (Esc)"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        <div className="p-6 space-y-6">
+          {shortcuts.map(({ category, items }) => (
+            <div key={category}>
+              <h3 className="text-sm font-medium text-[var(--primary)] mb-3">{category}</h3>
+              <div className="space-y-2">
+                {items.map(({ key, description }) => (
+                  <div key={key} className="flex items-center gap-4">
+                    <kbd className="min-w-[3rem] px-2 py-1 bg-[var(--background)] border border-[var(--border)] rounded text-xs font-mono text-[var(--foreground)] text-center">
+                      {key}
+                    </kbd>
+                    <span className="text-sm text-[var(--muted)]">{description}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div className="px-6 py-4 border-t border-[var(--border)] text-center">
+          <p className="text-xs text-[var(--muted)]">
+            Press <kbd className="px-1.5 py-0.5 bg-[var(--background)] border border-[var(--border)] rounded text-xs font-mono">Esc</kbd> to close
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // Valid type filters for URL validation
 const VALID_TYPE_FILTERS = ['all', 'handoff', 'reflections', 'planning', 'decision', 'discussion'] as const;
 const VALID_LAYOUTS: LayoutType[] = ['circular', 'timeline', 'swimlanes', 'force'];
@@ -838,6 +935,7 @@ function GraphPageContent() {
   const [focusedNodeIndex, setFocusedNodeIndex] = useState<number>(-1);
   const [copied, setCopied] = useState(false);
   const [layout, setLayout] = useState<LayoutType>(initialLayout);
+  const [showShortcutHelp, setShowShortcutHelp] = useState(false);
 
   // Playback state
   const [isPlaying, setIsPlaying] = useState(false);
@@ -1158,9 +1256,14 @@ function GraphPageContent() {
 
       switch (e.key) {
         case 'Escape':
-          handleSearchChange('');
-          handleNodeSelect(null);
-          setFocusedNodeIndex(-1);
+          // Close modal first if open, otherwise clear selection
+          if (showShortcutHelp) {
+            setShowShortcutHelp(false);
+          } else {
+            handleSearchChange('');
+            handleNodeSelect(null);
+            setFocusedNodeIndex(-1);
+          }
           break;
 
         case 'ArrowRight':
@@ -1287,12 +1390,18 @@ function GraphPageContent() {
             playbackSoundRef.current.playTest();
           }
           break;
+
+        case '?':
+          // Show keyboard shortcut help modal
+          e.preventDefault();
+          setShowShortcutHelp(true);
+          break;
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [visibleNodes, focusedNodeIndex, selectedNode, selectedNodeData, handleSearchChange, handleNodeSelect, handleLayoutChange, layout, router, playbackIndex, isPlaying, startPlayback, pausePlayback, resetPlayback, playbackSoundEnabled, playbackVolume]);
+  }, [visibleNodes, focusedNodeIndex, selectedNode, selectedNodeData, handleSearchChange, handleNodeSelect, handleLayoutChange, layout, router, playbackIndex, isPlaying, startPlayback, pausePlayback, resetPlayback, playbackSoundEnabled, playbackVolume, showShortcutHelp]);
 
   return (
     <div className="min-h-screen bg-[var(--background)]">
@@ -1661,8 +1770,8 @@ function GraphPageContent() {
               {playbackIndex !== null
                 ? `Watching instance ${sortedNodeIds[playbackIndex]} appear...`
                 : searchQuery || typeFilter !== 'all'
-                  ? 'Filtered nodes are highlighted. Click to select.'
-                  : 'Click a node or use arrow keys. Press / to search, F to filter, L for layout, P to play.'}
+                  ? 'Filtered nodes are highlighted. Click to select. Press ? for shortcuts.'
+                  : 'Click a node or use arrow keys. Press ? for all shortcuts.'}
             </span>
           </div>
         )}
@@ -1864,10 +1973,13 @@ function GraphPageContent() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center text-[var(--muted)] text-sm">
           <p>Upwelling: Deep knowledge rising to the surface</p>
           <p className="mt-2 text-xs">
-            Graph by Instance 8 • Search/filter by Instance 10 • Deep linking by Instance 11 • Timeline layout by Instance 14 • Swimlanes by Instance 19 • Force layout by Instance 2 (exodus) • Playback by Instance 3 (exodus) • Enhanced search by Instance 4 (exodus) • Playback controls by Instance 5 (exodus) • Playback sounds by Instance 6 (exodus) • Volume control by Instance 7 (exodus)
+            Graph by Instance 8 • Search/filter by Instance 10 • Deep linking by Instance 11 • Timeline layout by Instance 14 • Swimlanes by Instance 19 • Force layout by Instance 2 (exodus) • Playback by Instance 3 (exodus) • Enhanced search by Instance 4 (exodus) • Playback controls by Instance 5 (exodus) • Playback sounds by Instance 6 (exodus) • Volume control by Instance 7 (exodus) • Keyboard help by Instance 8 (exodus)
           </p>
         </div>
       </footer>
+
+      {/* Keyboard Shortcut Help Modal */}
+      <ShortcutHelpModal isOpen={showShortcutHelp} onClose={() => setShowShortcutHelp(false)} />
     </div>
   );
 }
